@@ -1,0 +1,72 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ---- 虚拟环境 ----
+.venv/
+venv/
+ENV/
+env/
+.python-version
+
+# ---- 测试与类型检查 ----
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 本地配置与凭据 ----
+.env
+.env.*
+*.local.toml
+_private/
+
+# ---- 数据库文件（本项目不连库，防止误提交）----
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- 运行产物 ----
+out/
+tmp/
+temp/
+*.log
+
+# ---- 发布产物：本地保留副本，不入库 ----
+release/*.whl
+release/*.tar.gz
