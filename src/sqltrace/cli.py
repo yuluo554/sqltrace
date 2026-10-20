@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .census import census, census_summary, render_markdown
 from .constants import DIALECTS, EXIT_INTERNAL, EXIT_OK, EXIT_USAGE
 from .core import build_edges
 from .fallback import assert_reason_codes, zero_silence_violations
@@ -149,7 +150,47 @@ def main(argv: list | None = None) -> int:
                   file=sys.stderr)
         return _gate_exit(silent, unknown_codes)
 
-    print(f"sqltrace {__version__}: 子命令 `{args.command}` 骨架就绪，实现于 M4–M5。")
+    if args.command == "census":
+        corpus = _load_or_exit(args)
+        if corpus is None:
+            return EXIT_USAGE
+        edges, edge_diags = build_edges(corpus)
+        diags = _all_diags(corpus, edge_diags)
+
+        # M4：复用 M3 的同一份门（§4.2 规则 4 / §4.8 规则 7）——census 与 lineage 不得各判一套
+        silent = zero_silence_violations(corpus.write_ids, edges, diags)
+        unknown_codes = assert_reason_codes(edges, diags)
+        report = census(corpus, edges)
+        # §4.8 规则 8：边集目标必须登记过写者（台账↔边集一致性）
+        orphan_edges = report.edges_missing_writer
+
+        if args.json:
+            payload = {
+                "version": __version__,
+                "census": report.to_dict(),
+                "zero_silence": {
+                    "passed": not silent and not unknown_codes and not orphan_edges,
+                    "silent_statements": silent,
+                    "unregistered_reason_codes": unknown_codes,
+                    "edges_missing_writer": orphan_edges,
+                },
+            }
+            print(dumps_json(payload))
+        elif args.md:
+            print(render_markdown(report, __version__), end="")
+        else:
+            print(f"sqltrace {__version__}: 写入者普查 · {census_summary(report)}。")
+
+        for sid in silent:
+            print(f"sqltrace: 零静默门 FAIL：写语句无边也无诊断 {sid}", file=sys.stderr)
+        if unknown_codes:
+            print(f"sqltrace: reason code 未登记（§4.2）：{', '.join(unknown_codes)}",
+                  file=sys.stderr)
+        for table in orphan_edges:
+            print(f"sqltrace: 台账不一致（§4.8）：表 {table} 有边但无写者", file=sys.stderr)
+        return EXIT_INTERNAL if (silent or unknown_codes or orphan_edges) else EXIT_OK
+
+    print(f"sqltrace {__version__}: 子命令 `{args.command}` 骨架就绪，实现于 M5。")
     return EXIT_OK
 
 

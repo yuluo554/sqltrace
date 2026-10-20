@@ -7,7 +7,7 @@
 - **项目**：SQLTrace——SQL 值/控制双通道血缘 + 写入者普查 + diff 闸门（**纯本地 Python CLI**）
 - **性质**：不参赛项目题 · 发布 GitHub **公开仓库** · 署名 `yuluo554`
 - **版本**：v1（2026-10-20 定稿；竞品与开源检索基准日 **2026-10-20**）；M0 骨架同日落地
-- **当前状态**：**M3 降级策略完成**（M0 骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边 + M3 降级策略与零静默门）。M4–M6 未开工，状态列见 §六。
+- **当前状态**：**M4 写入者普查完成**（M0 骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边 + M3 降级策略与零静默门 + M4 写入者普查五节）。M5–M6 未开工，状态列见 §六。
 - **一句话定位**：离线列级血缘不空（FlowScope 105★ 已占），但没人把**值边与控制边分开**、没人做**写入者普查**、没人做**纯 SQL 目录的 git diff 闸门**——本工具只押这三件。
 - **交付形态**：**唯一形态 = 纯本地 Python CLI**。无数据库连接、无元数据平台、无服务端、无网络请求、无图形界面。
 
@@ -23,10 +23,10 @@
 | `plan/04-数据计划.md` | 语料目录、标注规则、golden 冻结纪律 | ✅ M1 |
 | `plan/05-里程碑与发布.md` | 逐里程碑 DoD 与状态回写 | ✅ M1 |
 | `plan/06-交付对标与决策.md` | 评分对标、开放项 | ✅ M1 |
-| `src/sqltrace/` | CLI 源码（装载 / 内核 / 降级 / 普查 / diff） | 🟡 M1–M5（装载/内核/降级已落地；普查/diff 待 M4–M5） |
+| `src/sqltrace/` | CLI 源码（装载 / 内核 / 降级 / 普查 / diff） | 🟡 M1–M5（装载/内核/降级/普查已落地；diff 待 M5） |
 | `data/corpus/**/*.sql` + `data/labels/*.json` | 40–60 个 `.sql` 人工标注语料 | ✅ M1 |
-| `data/golden/g1`–`g5` | 五条 golden 回归（输入 + 期望输出 + 说明） | 🟡 输入侧 M1 已冻结；g2/g3 实现侧 M3 验过；期望侧 M5 冻结 |
-| `docs/census-sample.md`、`docs/diff-sample.json` | 真实运行输出样例 | ⬜ M4 / M5 |
+| `data/golden/g1`–`g5` | 五条 golden 回归（输入 + 期望输出 + 说明） | 🟡 输入侧 M1 已冻结；g2/g3/g4 实现侧 M3/M4 验过；期望侧 M5 冻结 |
+| `docs/census-sample.md`、`docs/diff-sample.json` | 真实运行输出样例 | 🟡 `census-sample.md` ✅ M4；`diff-sample.json` ⬜ M5 |
 | `plan/RELEASE-M6.md` | 发布留档（**tag 前入库**；tag 后事实分栏追加） | ⬜ M6 |
 | `plan/HANDOFF-M<k>.md` | 第 k 个里程碑收尾交接单 | ✅ M1 起（M0 豁免） |
 
@@ -78,7 +78,7 @@
 | `SELECT *` 未知 schema 不猜列名 | 本题设计（D12）；反例 OpenLineage #3809 | `unknown_wildcard` + `approximate=true` | golden g2：输出中不含任何猜测列名 | ✅ M3 |
 | `INSERT` 列清单位置映射 | 本题设计；反例 sqlglot 实测 `Cannot find column 'c1'` | `arity_mismatch` 诊断 | golden g3 | ✅ M3 |
 | `CREATE VIEW v(c1,c2)` 列名对齐 | 本题设计；反例 OpenMetadata #33077 | 显式列名对齐 | 专项用例（静默丢列的反例） | ✅ M3 |
-| 写入者普查（writers / readers / orphan / multi-writer / write-only） | 本题设计；检索式 `sql table multiple writers conflict` → 0 | `census` 子命令 + Markdown 报表 | 合成语料植入项全命中且无误报；golden g4 | ⬜ M4 |
+| 写入者普查（writers / readers / orphan / multi-writer / write-only） | 本题设计；检索式 `sql table multiple writers conflict` → 0 | `census` 子命令 + Markdown 报表 | 合成语料植入项全命中且无误报；golden g4 | ✅ M4 |
 | lineage diff 闸门（ADDED/REMOVED/CHANGED + 退出码） | 本题设计；检索式 `sql folder git diff lineage` → 0 | `diff --base` | 同输入两次 JSON 字节级一致；golden g5 | ⬜ M5 |
 | `impact` 穿透两层中间表 | 本题设计；HN 47946547 原话 | `impact <table>.<column>` | golden g5 中 `impact raw.cust.nm` 给出最终消费者 | ⬜ M5 |
 | 原型四段链路已验证 | 单文件原型（多文件 → 边 → 影响查询 → 两版本 diff） | — | 本机运行记录 | ✅ 已登记（原型，非交付物） |
@@ -128,7 +128,7 @@
 | **M1 数据先行** | 40–60 个 `.sql` 人工标注语料（5 方言）+ 标注 JSON + 五条 golden 的**输入侧**定稿；语料不变量自检（无真实表名、无真实人名、无公司名） | 语料文件数落进区间；每条 golden 有输入与一句话说明；标注 JSON 覆盖全部 value 边；`sqltrace` 可遍历语料并输出文件清单（装载器最小闭环） | ✅ |
 | **M2 血缘内核** | sqlglot AST + 自研 scope walker；三类边 + 元数据（expr / join_path / aggregation / window） | `value` 边精确率 100%；召回 ≥85%；窗口用例 `w<-x`(value) + `w<-k`(control)，**不得**出现 `w<-k` 的 value 边；golden g1 绿 | ✅ |
 | **M3 降级策略** | 全部策略档 + reason code 枚举 + 诊断 | `grep -c unknown` 与未解析计数一致；每个降级构造都有对应 reason code；**零静默**；golden g2 / g3 绿 | ✅ |
-| **M4 写入者普查** | writers / readers / orphan / multi_writer / write_only + Markdown 报表 | 合成语料植入项全命中、单写入者表零误报；golden g4 绿；`docs/census-sample.md` 为真实输出 | ⬜ |
+| **M4 写入者普查** | writers / readers / orphan / multi_writer / write_only + Markdown 报表 | 合成语料植入项全命中、单写入者表零误报；golden g4 绿；`docs/census-sample.md` 为真实输出 | ✅ |
 | **M5 diff 闸门与输出** | `diff --base`（git + 双目录）、`impact`、退出码、JSON 稳定排序 + Markdown 评论 | 同输入两次运行 JSON 字节级一致、跨平台一致；`impact` 穿透两层；golden g5 绿；五条 golden 一条命令全绿 | ⬜ |
 | **M6 发布** | 发布 GitHub **公开仓库** | **M6 DoD = 三件套：①git tag ②GitHub Release（附产物 `release/*.whl` + `SHA256SUMS`，本地留副本）③发布留档 `plan/RELEASE-M6.md`（tag 之前写好并进 tag 树）**；发布后实测值在留档里分栏追加 | ⬜ |
 

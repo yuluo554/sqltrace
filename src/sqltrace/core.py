@@ -600,6 +600,22 @@ def _register_insert_schema(corpus: Corpus, root, table: str) -> None:
         corpus.schemas[table] = {c: "unknown" for c in names}
 
 
+def _read_tables(root, target_table) -> tuple:
+    """语句读到的表（§4.8 读者口径）：AST 里的表引用，去掉 CTE 名与自身写目标。
+
+    CTE 名在 AST 里也是 `exp.Table`，必须排除，否则普查会给 CTE 虚构一张"读到的表"。
+    不读边集——纯 `SELECT` 不产边，但它是读者；`unknown` 边 `source_table=None` 也就不可能混进来。
+    """
+    ctes = {cte.alias for cte in root.find_all(exp.CTE) if cte.alias}
+    names = set()
+    for node in root.find_all(exp.Table):
+        name = node.name
+        if not name or name in ctes or name == target_table:
+            continue
+        names.add(name)
+    return tuple(sorted(names))
+
+
 def _flag_no_source(resolver, write_ids: list, stmt) -> None:
     """写语句零边时给出确定结论 `no_source_columns`（§4.2）：边集为空是**结果**，不是丢弃。
 
@@ -622,6 +638,8 @@ def build_edges(corpus: Corpus):
     edges: list[Edge] = []
     diags: list[Diagnostic] = []
     write_ids: list[str] = []  # 应产出血缘的写语句（§4.2 规则 4 零静默门的输入）
+    write_targets: dict = {}  # M4 普查台账（§4.8）：statement_id -> 写目标表
+    reads: dict = {}  # M4 普查台账（§4.8）：statement_id -> 读到的表（升序元组）
 
     for stmt in corpus.statements:
         dialect = _DIALECT_MAP.get(stmt.dialect, "postgres")
@@ -655,6 +673,10 @@ def build_edges(corpus: Corpus):
         # ---- MERGE：核心里没有 _target_of 形态，走 M3 降级策略（逐分支）----
         if isinstance(root, exp.Merge):
             write_ids.append(stmt.statement_id)
+            merge_table = root.this.name if isinstance(root.this, exp.Table) else None
+            if merge_table:
+                write_targets[stmt.statement_id] = merge_table
+            reads[stmt.statement_id] = _read_tables(root, merge_table)
             resolver = _Resolver(corpus, stmt)
             fallback.resolve_merge(resolver, root)
             resolver.output_count = len({e.target_column for e in resolver.edges})
@@ -677,11 +699,16 @@ def build_edges(corpus: Corpus):
             continue
 
         if target is None:
+            # 纯 SELECT：不产边，但它是**读者**（§4.8 读者口径不能只看边集）
+            if isinstance(root, exp.Query):
+                reads[stmt.statement_id] = _read_tables(root, None)
             continue  # 纯 SELECT / 纯 DDL：不是血缘语句
         table, explicit_cols, select = target
         if not table or select is None:
             continue
         write_ids.append(stmt.statement_id)
+        write_targets[stmt.statement_id] = table
+        reads[stmt.statement_id] = _read_tables(root, table)
 
         if isinstance(root, exp.Insert):
             _register_insert_schema(corpus, root, table)
@@ -730,4 +757,6 @@ def build_edges(corpus: Corpus):
     uniq.sort(key=lambda e: (e.sort_key(), e.statement_id))
     diags.sort(key=lambda d: d.sort_key())
     corpus.write_ids = list(write_ids)
+    corpus.write_targets = dict(write_targets)  # M4 普查台账（§4.8）
+    corpus.reads = dict(reads)
     return uniq, diags

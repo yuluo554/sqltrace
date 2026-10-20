@@ -73,3 +73,6 @@ class Corpus:
     diagnostics: list = field(default_factory=list)  # Diagnostic[]
     # M3：build_edges 填写的"应产出血缘的写语句" id 列表（§4.2 规则 4 零静默门输入）
     write_ids: list = field(default_factory=list)
+    # M4：build_edges 填写的普查台账（§4.8）
+    write_targets: dict = field(default_factory=dict)  # statement_id -> 写目标表
+    reads: dict = field(default_factory=dict)  # statement_id -> tuple[读到的表]
