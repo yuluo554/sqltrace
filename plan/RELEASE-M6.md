@@ -92,11 +92,11 @@ README §命令树 五条命令逐条实跑（wheel 通道）：
 | 同输入两次运行字节级一致 | 实现（Windows） | 本机双跑 `sha256` 相同；Linux/macOS 侧待首推 CI 回填 |
 | 五条 golden 回归 | 实现 | `sqltrace golden data/golden` → 5/5，退出码 `0` |
 | 三个切口检索为 0 | 不适用（软论据） | 检索式未穷尽，`plan/00` §三已标"软论据"；不在发布面宣称 |
-| 跨平台字节级一致（Linux/macOS） | 待首推 | CI 首次运行后回填 run id（`plan/05` §四） |
-| CI 实跑 | 待首推 | 本机为"本地等价校验（未接远端，CI 待首推验证）"；`gh run list` 有结果后回填 |
+| 跨平台字节级一致（Linux/macOS） | 实现（Windows 本机 + Linux CI） | Windows 双跑 + run `39466283266` 的 Linux pytest 双跑字节比对；**macOS 未验**（CI 无 macOS runner） |
+| CI 实跑 | 实现 | run `39466283266` 三 job 全绿（布局门 / pytest + 五条 golden / 3.8 语法）；真实 run id 已回填 §二 |
 | 发布三件套 | 实现（本文件 + tag + Release） | tag 名与 Release URL 见 §二 |
 
-### 7. CI 接线（本机等价校验，未接远端）
+### 7. CI 接线
 
 `.github/workflows/ci.yml` 三个 job：
 
@@ -104,7 +104,7 @@ README §命令树 五条命令逐条实跑（wheel 通道）：
 2. `test` — `pip install -e ".[dev]"` → `pytest tests -q` → `sqltrace golden data/golden`（**五条 golden 在 CI 里跑**）；
 3. `py38-syntax` — `ast.parse(feature_version=(3,8))` 覆盖 `src/sqltrace`、`tests`、`tools`。
 
-CI 不需要 git 历史：g5 的 diff 断言走**目录模式**（`corpus` → `corpus_v2`），浅克隆下也能跑。本地等价校验已通过（布局门绿 / 107 tests 绿 / 五条 golden 5/5）；**首推后**回填真实 run id。
+CI 不需要 git 历史：g5 的 diff 断言走**目录模式**（`corpus` → `corpus_v2`），浅克隆下也能跑。首推 run `39466283266` **三 job 全绿**（布局门 4s / 全量测试 + 五条 golden 13s / 3.8 语法 15s），见 §二。
 
 ### 8. tag 前状态
 
@@ -113,12 +113,28 @@ CI 不需要 git 历史：g5 的 diff 断言走**目录模式**（`corpus` → `
 
 ## 二、tag 后追加（tag 之后写，tag 树内为占位）
 
-> 本节在 tag 提交里是"待追加"状态——tag 树内不自指写哈希与 URL。
+> 本节在 tag 提交里是"待追加"状态——tag 树内不自指写哈希与 URL。以下为 tag 之后的事实。
 
 | 项 | 值 |
 | --- | --- |
-| tag 名 | 待追加 |
-| tag 对象 | 待追加（annotated tag 的 SHA） |
-| Release URL | 待追加 |
-| 上传产物 SHA256（下载后复核） | 待追加 |
-| CI run id（首推） | 待追加 |
+| tag 名 | `v0.1.0`（annotated，`git cat-file -t` = `tag`） |
+| tag 对象 SHA | `a5ecc0ba3729ee765616ece0648b7c5bf574030d` |
+| tag 指向的 commit | `e579c772cbae35d23add43a4e458927292d78b36` |
+| 远端仓库 | `https://github.com/yuluo554/sqltrace`（public） |
+| Release URL | `https://github.com/yuluo554/sqltrace/releases/tag/v0.1.0` |
+| 上传产物 | `sqltrace-0.1.0-py3-none-any.whl`（42,267 B）、`sqltrace-0.1.0.tar.gz`（56,717 B）、`SHA256SUMS`（186 B），三件状态均为 `uploaded` |
+| 下载后复核 SHA256 | wheel `908a6b6189a9edd23cb7f80fa0d7eba70cbb9533490ef88104c89480c2de21ef`；sdist `06f9c00c75cc2dc607e4728fa6d8b0dc4f1b5ad66ed87fcb05b38758cf92273c`——**与 `SHA256SUMS` 及 §一 表逐字节相同** |
+| 下载产物安装验证 | `gh release download` 取回的 wheel → 全新 venv 安装 → `sqltrace 0.1.0`、`golden` 5/5，退出码 `0` |
+| CI run id（首推） | `39466283266`（`ci` / `main` / push，**success**）：布局门 4s、全量测试 + 五条 golden 13s、3.8 语法兼容 15s |
+| CI 结论措辞 | **CI 绿**（真实 run id 已回填；Linux/ubuntu-latest 侧三 job 全绿） |
+
+### tag 后提交范围（POST_TAG_SCOPE + DELIVERABLE_UNCHANGED）
+
+本次 tag 后提交只改 `plan/RELEASE-M6.md`、`plan/HANDOFF-M6.md`、`plan/00`、`plan/05`、`plan/06` 与 `README.md`（安装段）；`src/`、`data/`、`tests/`、`docs/`、`pyproject.toml`、`release/SHA256SUMS` **零改动**（判据命令见 `plan/HANDOFF-M6.md` §二 #8）。
+
+> 如实登记：tag 后追加的 README「安装发布版」段**不在**已发布的 sdist 内（sdist 打包的是 tag 版本的 README）。wheel 功能与两件产物哈希不受影响；sdist 用户按 Release 页安装即可。
+
+### 未验证项（如实登记）
+
+- macOS 侧未跑（CI 只有 ubuntu-latest）；Windows 本机双跑与 Linux CI 均已验字节级一致，macOS 仍属未验证。
+- PyPI 未发布（D13 定案：只走 GitHub Release 附产物）。

@@ -35,3 +35,11 @@ py -X utf8 tools/check_sprint_layout.py   # 布局门（方法论装订）
 ```
 
 运行期依赖仅 `sqlglot`（只当解析器，不调用其 `lineage()`）+ 标准库。License: MIT。
+
+## 安装发布版
+
+```bash
+pip install https://github.com/yuluo554/sqltrace/releases/download/v0.1.0/sqltrace-0.1.0-py3-none-any.whl
+```
+
+校验和见 Release 附件的 `SHA256SUMS`（`sha256sum -c SHA256SUMS`）。CI 状态：[run `39466283266`](https://github.com/yuluo554/sqltrace/actions) 三 job 全绿（布局门 / 全量测试 + 五条 golden / 3.8 语法）。

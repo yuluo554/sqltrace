@@ -61,19 +61,23 @@
 - [x] CI 接线：`.github/workflows/ci.yml`（布局门 / pytest + 五条 golden / 3.8 语法）
 - [x] 状态三副本回写 M6 ✅（`plan/00` 里程碑表 + `plan/05` 状态表 + `README.md` 状态行）+ `plan/06` 缺口列改写
 - [x] 布局门绿（含本份交接单）
-- [ ] annotated tag（`v0.1.0`）→ 见 §七
-- [ ] `gh release create` 附三份产物 → 见 §七
-- [ ] tag 后追加 `RELEASE-M6.md` §二（tag 名 / tag SHA / Release URL / 上传产物哈希 / CI run id）
+- [x] annotated tag `v0.1.0`（annotated，指向 `e579c77`）→ 见 §七
+- [x] `gh release create` 附三份产物（whl / tar.gz / SHA256SUMS，均 `uploaded`）→ 见 §七
+- [x] tag 后追加 `RELEASE-M6.md` §二（tag 名 / tag SHA / Release URL / 下载后复核哈希 / CI run id）
 
 ## 七、发布事实（tag 后回填）
 
 | 项 | 值 |
 | --- | --- |
-| tag 名 | 待回填 |
-| tag 对象 SHA | 待回填 |
-| Release URL | 待回填 |
-| 上传产物（3 件） | 待回填 |
-| CI run id | 待回填（首推后） |
+| tag 名 | `v0.1.0`（annotated） |
+| tag 对象 SHA | `a5ecc0ba3729ee765616ece0648b7c5bf574030d` |
+| tag 指向 commit | `e579c772cbae35d23add43a4e458927292d78b36` |
+| Release URL | `https://github.com/yuluo554/sqltrace/releases/tag/v0.1.0` |
+| 上传产物（3 件） | `sqltrace-0.1.0-py3-none-any.whl`（42,267 B）、`sqltrace-0.1.0.tar.gz`（56,717 B）、`SHA256SUMS`（186 B）——`gh release view` 三件均 `uploaded` |
+| 下载后复核 | `gh release download v0.1.0` 取回三件，哈希与 `SHA256SUMS` 及 `RELEASE-M6.md` §一 表**逐字节相同**；取回的 wheel 装进全新 venv → `golden` 5/5，退出码 `0` |
+| CI run id | `39466283266`（`ci` / `main` / push / **success**；三 job 全绿） |
+
+> **CI 措辞已升级**：首推已完成、真实 run id 已回填，故可写"**CI 绿**"（不再是"待首推验证"）。`plan/05 §四` 与 `plan/06` 已同步。
 
 ## 八、关键命令速查
 

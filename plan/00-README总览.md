@@ -86,7 +86,7 @@
 | 六条真实 issue 与需求原话 | 各 issue 页与 HN 条目，基准日 2026-10-20 | 题面 §1.2 / §1.3 | 链接可直连 | ✅ 已登记 |
 | 三个切口检索为 0 | `gh api` 检索式与 `total_count` | 题面 §1.4 | 检索式 + 计数 + 基准日成对出现 | ⬜ 软论据（检索未穷尽，非全量） |
 | 零网络 / 无数据库连接 | 本题设计（D8） | 全 CLI | 静态扫描无网络调用；无 DB 驱动依赖 | ✅ M5 |
-| 同输入两次运行字节级一致 | 本题设计（D9） | 全部 JSON 输出 | 两次运行 `sha256` 相同；跨平台一致 | ✅ M5（Windows 本机双跑；Linux 侧待 CI，见 `plan/05 §四`） |
+| 同输入两次运行字节级一致 | 本题设计（D9） | 全部 JSON 输出 | 两次运行 `sha256` 相同；跨平台一致 | ✅ M5（Windows 本机双跑）；✅ M6（Linux CI run `39466283266`）；macOS 未验 |
 | 五条 golden 回归 | 本题设计 | `data/golden/g1`–`g5` | `sqltrace golden` 一条命令全绿 | ✅ M5 |
 | 发布三件套 | 本题设计（D13） | 仓库发布流程 | git tag + GitHub Release（**附产物** `release/*.whl` + `SHA256SUMS`）+ `plan/RELEASE-M6.md` | ✅ M6 |
 
