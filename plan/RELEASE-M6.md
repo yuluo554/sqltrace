@@ -126,6 +126,7 @@ CI 不需要 git 历史：g5 的 diff 断言走**目录模式**（`corpus` → `
 | 下载后复核 SHA256 | wheel `908a6b6189a9edd23cb7f80fa0d7eba70cbb9533490ef88104c89480c2de21ef`；sdist `06f9c00c75cc2dc607e4728fa6d8b0dc4f1b5ad66ed87fcb05b38758cf92273c`——**与 `SHA256SUMS` 及 §一 表逐字节相同** |
 | 下载产物安装验证 | `gh release download` 取回的 wheel → 全新 venv 安装 → `sqltrace 0.1.0`、`golden` 5/5，退出码 `0` |
 | CI run id（首推） | `39466283266`（`ci` / `main` / push，**success**）：布局门 4s、全量测试 + 五条 golden 13s、3.8 语法兼容 15s |
+| CI run id（tag 后追加提交） | `39466653904`（**success**，20s）——tag 后的文档追加不破坏任何门 |
 | CI 结论措辞 | **CI 绿**（真实 run id 已回填；Linux/ubuntu-latest 侧三 job 全绿） |
 
 ### tag 后提交范围（POST_TAG_SCOPE + DELIVERABLE_UNCHANGED）

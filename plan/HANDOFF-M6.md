@@ -75,7 +75,7 @@
 | Release URL | `https://github.com/yuluo554/sqltrace/releases/tag/v0.1.0` |
 | 上传产物（3 件） | `sqltrace-0.1.0-py3-none-any.whl`（42,267 B）、`sqltrace-0.1.0.tar.gz`（56,717 B）、`SHA256SUMS`（186 B）——`gh release view` 三件均 `uploaded` |
 | 下载后复核 | `gh release download v0.1.0` 取回三件，哈希与 `SHA256SUMS` 及 `RELEASE-M6.md` §一 表**逐字节相同**；取回的 wheel 装进全新 venv → `golden` 5/5，退出码 `0` |
-| CI run id | `39466283266`（`ci` / `main` / push / **success**；三 job 全绿） |
+| CI run id | `39466283266`（首推，**success**）；`39466653904`（tag 后追加提交，**success**） |
 
 > **CI 措辞已升级**：首推已完成、真实 run id 已回填，故可写"**CI 绿**"（不再是"待首推验证"）。`plan/05 §四` 与 `plan/06` 已同步。
 
