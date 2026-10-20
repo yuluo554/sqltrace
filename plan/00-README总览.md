@@ -7,7 +7,7 @@
 - **项目**：SQLTrace——SQL 值/控制双通道血缘 + 写入者普查 + diff 闸门（**纯本地 Python CLI**）
 - **性质**：不参赛项目题 · 发布 GitHub **公开仓库** · 署名 `yuluo554`
 - **版本**：v1（2026-10-20 定稿；竞品与开源检索基准日 **2026-10-20**）；M0 骨架同日落地
-- **当前状态**：**M0 骨架完成**（plan/00、plan/01、data/README、.gitignore、git 首提交）。M1–M6 未开工，里程碑状态列全部保持 ⬜。
+- **当前状态**：**M1 数据先行完成**（M0 骨架 + M1 语料/标注/golden 输入侧/装载器闭环）。M2–M6 未开工，状态列见 §六。
 - **一句话定位**：离线列级血缘不空（FlowScope 105★ 已占），但没人把**值边与控制边分开**、没人做**写入者普查**、没人做**纯 SQL 目录的 git diff 闸门**——本工具只押这三件。
 - **交付形态**：**唯一形态 = 纯本地 Python CLI**。无数据库连接、无元数据平台、无服务端、无网络请求、无图形界面。
 
@@ -125,7 +125,8 @@
 
 | 里程碑 | 内容 | DoD | 状态 |
 | --- | --- | --- | --- |
-| **M1 数据先行** | 40–60 个 `.sql` 人工标注语料（5 方言）+ 标注 JSON + 五条 golden 的**输入侧**定稿；语料不变量自检（无真实表名、无真实人名、无公司名） | 语料文件数落进区间；每条 golden 有输入与一句话说明；标注 JSON 覆盖全部 value 边；`sqltrace` 可遍历语料并输出文件清单（装载器最小闭环） | ⬜ |
+| **M0 装订与骨架** | 方法论装订三件 + plan/02–06 + 可运行骨架（src/sqltrace 命令树占位 + pyproject + tests 冒烟） | 布局门绿且变异验证通过；`pip install -e .` 后 `sqltrace --help` 可跑；骨架冒烟测试绿 | ✅ |
+| **M1 数据先行** | 40–60 个 `.sql` 人工标注语料（5 方言）+ 标注 JSON + 五条 golden 的**输入侧**定稿；语料不变量自检（无真实表名、无真实人名、无公司名） | 语料文件数落进区间；每条 golden 有输入与一句话说明；标注 JSON 覆盖全部 value 边；`sqltrace` 可遍历语料并输出文件清单（装载器最小闭环） | ✅ |
 | **M2 血缘内核** | sqlglot AST + 自研 scope walker；三类边 + 元数据（expr / join_path / aggregation / window） | `value` 边精确率 100%；召回 ≥85%；窗口用例 `w<-x`(value) + `w<-k`(control)，**不得**出现 `w<-k` 的 value 边；golden g1 绿 | ⬜ |
 | **M3 降级策略** | 全部策略档 + reason code 枚举 + 诊断 | `grep -c unknown` 与未解析计数一致；每个降级构造都有对应 reason code；**零静默**；golden g2 / g3 绿 | ⬜ |
 | **M4 写入者普查** | writers / readers / orphan / multi_writer / write_only + Markdown 报表 | 合成语料植入项全命中、单写入者表零误报；golden g4 绿；`docs/census-sample.md` 为真实输出 | ⬜ |

@@ -70,3 +70,4 @@ temp/
 # ---- 发布产物：本地保留副本，不入库 ----
 release/*.whl
 release/*.tar.gz
+data/golden/*/work/

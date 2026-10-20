@@ -1,0 +1,22 @@
+{
+  "dialect": "postgres",
+  "edges": {
+    "50_mart_orphan.sql": [],
+    "51_mart_multi_writer.sql": [
+      {
+        "expr": "id",
+        "kind": "value",
+        "source": "raw_orphan.id",
+        "target": "stage_hot.id"
+      }
+    ],
+    "52_stage_hot_w2.sql": [
+      {
+        "expr": "post_id",
+        "kind": "value",
+        "source": "raw_sns.post_id",
+        "target": "stage_hot.id"
+      }
+    ]
+  }
+}

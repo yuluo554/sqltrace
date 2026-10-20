@@ -1,0 +1,231 @@
+{
+  "dialect": "postgres",
+  "edges": {
+    "postgres/01_stage_orders_clean.sql": [
+      {
+        "expr": "o.id",
+        "kind": "value",
+        "source": "raw_ord.id",
+        "target": "stage_orders_clean.id"
+      },
+      {
+        "expr": "o.cust_id",
+        "kind": "value",
+        "source": "raw_ord.cust_id",
+        "target": "stage_orders_clean.cust_id"
+      },
+      {
+        "expr": "o.amt",
+        "kind": "value",
+        "source": "raw_ord.amt",
+        "target": "stage_orders_clean.amt"
+      },
+      {
+        "expr": "SUM(o.amt) OVER (PARTITION BY o.cust_id ORDER BY o.dt)",
+        "kind": "value",
+        "source": "raw_ord.amt",
+        "target": "stage_orders_clean.w"
+      },
+      {
+        "expr": "PARTITION BY o.cust_id",
+        "kind": "control",
+        "source": "raw_ord.cust_id",
+        "target": "stage_orders_clean.w"
+      },
+      {
+        "expr": "ORDER BY o.dt",
+        "kind": "control",
+        "source": "raw_ord.dt",
+        "target": "stage_orders_clean.w"
+      },
+      {
+        "expr": "o.dt",
+        "kind": "value",
+        "source": "raw_ord.dt",
+        "target": "stage_orders_clean.dt"
+      }
+    ],
+    "postgres/02_stage_cust_enrich.sql": [
+      {
+        "expr": "c.id",
+        "kind": "value",
+        "source": "raw_cust.id",
+        "target": "stage_cust_enrich.id"
+      },
+      {
+        "expr": "CASE WHEN c.ct = 'x' THEN c.nm ELSE 'foo' END",
+        "kind": "value",
+        "source": "raw_cust.nm",
+        "target": "stage_cust_enrich.nm"
+      },
+      {
+        "expr": "CASE WHEN c.ct = 'x'",
+        "kind": "control",
+        "source": "raw_cust.ct",
+        "target": "stage_cust_enrich.nm"
+      },
+      {
+        "expr": "c.ct",
+        "kind": "value",
+        "source": "raw_cust.ct",
+        "target": "stage_cust_enrich.ct"
+      },
+      {
+        "expr": "c.dt",
+        "kind": "value",
+        "source": "raw_cust.dt",
+        "target": "stage_cust_enrich.dt"
+      }
+    ],
+    "postgres/03_mart_sales_daily.sql": [
+      {
+        "expr": "s.dt",
+        "kind": "value",
+        "source": "stage_orders_clean.dt",
+        "target": "mart_sales_daily.dt"
+      },
+      {
+        "expr": "GROUP BY s.dt",
+        "kind": "control",
+        "source": "stage_orders_clean.dt",
+        "target": "mart_sales_daily.dt"
+      },
+      {
+        "expr": "SUM(s.amt)",
+        "kind": "value",
+        "source": "stage_orders_clean.amt",
+        "target": "mart_sales_daily.gmv_amt"
+      }
+    ],
+    "postgres/04_mart_sales_daily_rd.sql": [
+      {
+        "expr": "m.dt",
+        "kind": "value",
+        "source": "mart_sales_daily.dt",
+        "target": "mart_sales_daily_rd.dt"
+      },
+      {
+        "expr": "m.gmv_amt",
+        "kind": "value",
+        "source": "mart_sales_daily.gmv_amt",
+        "target": "mart_sales_daily_rd.gmv_amt"
+      },
+      {
+        "expr": "c.nm",
+        "kind": "value",
+        "source": "stage_cust_enrich.nm",
+        "target": "mart_sales_daily_rd.nm"
+      },
+      {
+        "expr": "JOIN c.id = s.cust_id",
+        "kind": "control",
+        "source": "stage_cust_enrich.id",
+        "target": "mart_sales_daily_rd.nm"
+      }
+    ],
+    "postgres/05_mart_item_summary.sql": [
+      {
+        "expr": "o.dt",
+        "kind": "value",
+        "source": "raw_ord.dt",
+        "target": "mart_item_summary.dt"
+      },
+      {
+        "expr": "GROUP BY o.dt",
+        "kind": "control",
+        "source": "raw_ord.dt",
+        "target": "mart_item_summary.dt"
+      },
+      {
+        "expr": "i.sku",
+        "kind": "value",
+        "source": "raw_itm.sku",
+        "target": "mart_item_summary.sku"
+      },
+      {
+        "expr": "GROUP BY i.sku",
+        "kind": "control",
+        "source": "raw_itm.sku",
+        "target": "mart_item_summary.sku"
+      },
+      {
+        "expr": "SUM(i.qty)",
+        "kind": "value",
+        "source": "raw_itm.qty",
+        "target": "mart_item_summary.tot_qty"
+      },
+      {
+        "expr": "JOIN i.ord_id = o.id",
+        "kind": "control",
+        "source": "raw_ord.id",
+        "target": "mart_item_summary.tot_qty"
+      }
+    ],
+    "postgres/07_stage_union_src_a.sql": [
+      {
+        "expr": "id",
+        "kind": "value",
+        "source": "raw_cust.id",
+        "target": "stage_union_src_a.id"
+      },
+      {
+        "expr": "nm",
+        "kind": "value",
+        "source": "raw_cust.nm",
+        "target": "stage_union_src_a.nm"
+      },
+      {
+        "expr": "WHERE dt > '2020-01-01'",
+        "kind": "control",
+        "source": "raw_cust.dt",
+        "target": "stage_union_src_a.id"
+      }
+    ],
+    "postgres/08_stage_union_src_b.sql": [
+      {
+        "expr": "id",
+        "kind": "value",
+        "source": "raw_cust.id",
+        "target": "stage_union_src_b.id"
+      },
+      {
+        "expr": "nm",
+        "kind": "value",
+        "source": "raw_cust.nm",
+        "target": "stage_union_src_b.nm"
+      },
+      {
+        "expr": "WHERE dt <= '2020-01-01'",
+        "kind": "control",
+        "source": "raw_cust.dt",
+        "target": "stage_union_src_b.id"
+      }
+    ],
+    "postgres/09_mart_union_all.sql": [
+      {
+        "expr": "stage_union_src_a.id",
+        "kind": "value",
+        "source": "stage_union_src_a.id",
+        "target": "mart_union_all.id"
+      },
+      {
+        "expr": "stage_union_src_a.nm",
+        "kind": "value",
+        "source": "stage_union_src_a.nm",
+        "target": "mart_union_all.nm"
+      },
+      {
+        "expr": "stage_union_src_b.id",
+        "kind": "value",
+        "source": "stage_union_src_b.id",
+        "target": "mart_union_all.id"
+      },
+      {
+        "expr": "stage_union_src_b.nm",
+        "kind": "value",
+        "source": "stage_union_src_b.nm",
+        "target": "mart_union_all.nm"
+      }
+    ]
+  }
+}

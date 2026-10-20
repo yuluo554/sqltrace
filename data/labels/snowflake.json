@@ -1,0 +1,201 @@
+{
+  "dialect": "snowflake",
+  "edges": {
+    "snowflake/11_mart_pay_daily.sql": [
+      {
+        "expr": "pay_dt",
+        "kind": "value",
+        "source": "stage_pay.pay_dt",
+        "target": "mart_pay_daily.pay_dt"
+      },
+      {
+        "expr": "pay_amt",
+        "kind": "value",
+        "source": "stage_pay.pay_amt",
+        "target": "mart_pay_daily.pay_amt"
+      },
+      {
+        "expr": "PARTITION BY pay_dt",
+        "kind": "control",
+        "source": "stage_pay.pay_dt",
+        "target": "mart_pay_daily.pay_amt"
+      },
+      {
+        "expr": "ORDER BY pay_amt",
+        "kind": "control",
+        "source": "stage_pay.pay_amt",
+        "target": "mart_pay_daily.pay_amt"
+      },
+      {
+        "expr": "QUALIFY ROW_NUMBER() OVER (PARTITION BY pay_dt ORDER BY pay_amt) = 1",
+        "kind": "control",
+        "source": "stage_pay.pay_amt",
+        "target": "mart_pay_daily.pay_amt"
+      }
+    ],
+    "snowflake/12_mart_pay_diff.sql": [
+      {
+        "expr": "p.pay_dt",
+        "kind": "value",
+        "source": "stage_pay.pay_dt",
+        "target": "mart_pay_diff.pay_dt"
+      },
+      {
+        "expr": "p.pay_amt - r.ref_amt",
+        "kind": "value",
+        "source": "stage_pay.pay_amt",
+        "target": "mart_pay_diff.diff_amt"
+      },
+      {
+        "expr": "p.pay_amt - r.ref_amt",
+        "kind": "value",
+        "source": "stage_ref.ref_amt",
+        "target": "mart_pay_diff.diff_amt"
+      },
+      {
+        "expr": "JOIN r.ord_id = p.ord_id",
+        "kind": "control",
+        "source": "stage_ref.ord_id",
+        "target": "mart_pay_diff.diff_amt"
+      }
+    ],
+    "snowflake/13_stage_pay_flag.sql": [
+      {
+        "expr": "id",
+        "kind": "value",
+        "source": "stage_pay.id",
+        "target": "stage_pay_flag.id"
+      },
+      {
+        "expr": "ord_id",
+        "kind": "value",
+        "source": "stage_pay.ord_id",
+        "target": "stage_pay_flag.ord_id"
+      },
+      {
+        "expr": "pay_amt",
+        "kind": "value",
+        "source": "stage_pay.pay_amt",
+        "target": "stage_pay_flag.pay_amt"
+      },
+      {
+        "expr": "CASE WHEN pay_amt > 0 THEN 'y' END",
+        "kind": "value",
+        "source": "stage_pay.pay_amt",
+        "target": "stage_pay_flag.flg"
+      },
+      {
+        "expr": "CASE WHEN pay_amt > 0",
+        "kind": "control",
+        "source": "stage_pay.pay_amt",
+        "target": "stage_pay_flag.flg"
+      },
+      {
+        "expr": "pay_dt",
+        "kind": "value",
+        "source": "stage_pay.pay_dt",
+        "target": "stage_pay_flag.pay_dt"
+      }
+    ],
+    "snowflake/14_mart_flag_count.sql": [
+      {
+        "expr": "pay_dt",
+        "kind": "value",
+        "source": "stage_pay_flag.pay_dt",
+        "target": "mart_flag_count.pay_dt"
+      },
+      {
+        "expr": "GROUP BY pay_dt",
+        "kind": "control",
+        "source": "stage_pay_flag.pay_dt",
+        "target": "mart_flag_count.pay_dt"
+      },
+      {
+        "expr": "COUNT(*)",
+        "kind": "control",
+        "source": "stage_pay_flag.pay_dt",
+        "target": "mart_flag_count.cnt"
+      }
+    ],
+    "snowflake/16_mart_pay_view.sql": [
+      {
+        "expr": "pay_dt",
+        "kind": "value",
+        "source": "stage_pay.pay_dt",
+        "target": "mart_pay_view.pay_dt"
+      },
+      {
+        "expr": "pay_amt",
+        "kind": "value",
+        "source": "stage_pay.pay_amt",
+        "target": "mart_pay_view.pay_amt"
+      }
+    ],
+    "snowflake/17_mart_pay_rn.sql": [
+      {
+        "expr": "id",
+        "kind": "value",
+        "source": "stage_pay.id",
+        "target": "mart_pay_rn.id"
+      },
+      {
+        "expr": "ORDER BY pay_dt",
+        "kind": "control",
+        "source": "stage_pay.pay_dt",
+        "target": "mart_pay_rn.rn"
+      }
+    ],
+    "snowflake/18_mart_rn_reader.sql": [
+      {
+        "expr": "id",
+        "kind": "value",
+        "source": "mart_pay_rn.id",
+        "target": "mart_rn_pick.id"
+      },
+      {
+        "expr": "rn",
+        "kind": "value",
+        "source": "mart_pay_rn.rn",
+        "target": "mart_rn_pick.rn"
+      },
+      {
+        "expr": "WHERE rn <= 2",
+        "kind": "control",
+        "source": "mart_pay_rn.rn",
+        "target": "mart_rn_pick.rn"
+      }
+    ],
+    "snowflake/19_stage_pay_backup.sql": [
+      {
+        "expr": "id",
+        "kind": "value",
+        "source": "stage_pay.id",
+        "target": "stage_pay_backup.id"
+      },
+      {
+        "expr": "ord_id",
+        "kind": "value",
+        "source": "stage_pay.ord_id",
+        "target": "stage_pay_backup.ord_id"
+      },
+      {
+        "expr": "pay_amt",
+        "kind": "value",
+        "source": "stage_pay.pay_amt",
+        "target": "stage_pay_backup.pay_amt"
+      },
+      {
+        "expr": "pay_dt",
+        "kind": "value",
+        "source": "stage_pay.pay_dt",
+        "target": "stage_pay_backup.pay_dt"
+      },
+      {
+        "expr": "WHERE pay_dt IS NOT NULL",
+        "kind": "control",
+        "source": "stage_pay.pay_dt",
+        "target": "stage_pay_backup.pay_dt"
+      }
+    ]
+  }
+}

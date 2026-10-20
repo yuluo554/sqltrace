@@ -1,0 +1,4 @@
+CREATE TABLE raw_src (nm text);
+CREATE TABLE mid1 AS SELECT nm FROM raw_src;
+CREATE TABLE mid2 AS SELECT nm FROM mid1;
+CREATE TABLE leaf AS SELECT nm FROM mid2;

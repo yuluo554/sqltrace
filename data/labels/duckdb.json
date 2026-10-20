@@ -1,0 +1,207 @@
+{
+  "dialect": "duckdb",
+  "edges": {
+    "duckdb/41_stage_sns_clean.sql": [
+      {
+        "expr": "p.post_id",
+        "kind": "value",
+        "source": "raw_sns.post_id",
+        "target": "stage_sns_clean.post_id"
+      },
+      {
+        "expr": "p.usr",
+        "kind": "value",
+        "source": "raw_sns.usr",
+        "target": "stage_sns_clean.usr"
+      },
+      {
+        "expr": "p.dt",
+        "kind": "value",
+        "source": "raw_sns.dt",
+        "target": "stage_sns_clean.dt"
+      },
+      {
+        "expr": "p.likes",
+        "kind": "value",
+        "source": "raw_sns.likes",
+        "target": "stage_sns_clean.likes"
+      }
+    ],
+    "duckdb/42_stage_sns_tags.sql": [
+      {
+        "expr": "p.post_id",
+        "kind": "value",
+        "source": "raw_sns.post_id",
+        "target": "stage_sns_tags.post_id"
+      },
+      {
+        "expr": "t.tag",
+        "kind": "value",
+        "source": "raw_tag.tag",
+        "target": "stage_sns_tags.tag"
+      },
+      {
+        "expr": "JOIN t.post_id = p.post_id",
+        "kind": "control",
+        "source": "raw_tag.post_id",
+        "target": "stage_sns_tags.tag"
+      }
+    ],
+    "duckdb/43_mart_tag_daily.sql": [
+      {
+        "expr": "p.dt",
+        "kind": "value",
+        "source": "raw_sns.dt",
+        "target": "mart_tag_daily.dt"
+      },
+      {
+        "expr": "GROUP BY p.dt",
+        "kind": "control",
+        "source": "raw_sns.dt",
+        "target": "mart_tag_daily.dt"
+      },
+      {
+        "expr": "t.tag",
+        "kind": "value",
+        "source": "raw_tag.tag",
+        "target": "mart_tag_daily.tag"
+      },
+      {
+        "expr": "GROUP BY t.tag",
+        "kind": "control",
+        "source": "raw_tag.tag",
+        "target": "mart_tag_daily.tag"
+      },
+      {
+        "expr": "SUM(p.likes)",
+        "kind": "value",
+        "source": "raw_sns.likes",
+        "target": "mart_tag_daily.tot_likes"
+      },
+      {
+        "expr": "JOIN t.post_id = p.post_id",
+        "kind": "control",
+        "source": "raw_tag.post_id",
+        "target": "mart_tag_daily.tot_likes"
+      }
+    ],
+    "duckdb/44_mart_tag_qualify.sql": [
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "mart_tag_daily.dt",
+        "target": "mart_tag_qualify.dt"
+      },
+      {
+        "expr": "tag",
+        "kind": "value",
+        "source": "mart_tag_daily.tag",
+        "target": "mart_tag_qualify.tag"
+      },
+      {
+        "expr": "tot_likes",
+        "kind": "value",
+        "source": "mart_tag_daily.tot_likes",
+        "target": "mart_tag_qualify.tot_likes"
+      },
+      {
+        "expr": "QUALIFY tot_likes >= 1",
+        "kind": "control",
+        "source": "mart_tag_daily.tot_likes",
+        "target": "mart_tag_qualify.tot_likes"
+      }
+    ],
+    "duckdb/46_mart_sns_pct.sql": [
+      {
+        "expr": "post_id",
+        "kind": "value",
+        "source": "stage_sns_clean.post_id",
+        "target": "mart_sns_pct.post_id"
+      },
+      {
+        "expr": "likes * 100",
+        "kind": "value",
+        "source": "stage_sns_clean.likes",
+        "target": "mart_sns_pct.likes_pct"
+      }
+    ],
+    "duckdb/47_mart_pct_pick.sql": [
+      {
+        "expr": "post_id",
+        "kind": "value",
+        "source": "mart_sns_pct.post_id",
+        "target": "mart_pct_pick.post_id"
+      },
+      {
+        "expr": "likes_pct",
+        "kind": "value",
+        "source": "mart_sns_pct.likes_pct",
+        "target": "mart_pct_pick.likes_pct"
+      },
+      {
+        "expr": "WHERE likes_pct > 1",
+        "kind": "control",
+        "source": "mart_sns_pct.likes_pct",
+        "target": "mart_pct_pick.likes_pct"
+      }
+    ],
+    "duckdb/48_mart_tag_top.sql": [
+      {
+        "expr": "tag",
+        "kind": "value",
+        "source": "mart_tag_qualify.tag",
+        "target": "mart_tag_top.tag"
+      },
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "mart_tag_qualify.dt",
+        "target": "mart_tag_top.dt"
+      },
+      {
+        "expr": "tot_likes",
+        "kind": "value",
+        "source": "mart_tag_qualify.tot_likes",
+        "target": "mart_tag_top.tot_likes"
+      },
+      {
+        "expr": "WHERE tag IN ('x', 'y')",
+        "kind": "control",
+        "source": "mart_tag_qualify.tag",
+        "target": "mart_tag_top.tag"
+      }
+    ],
+    "duckdb/49_stage_sns_cte.sql": [
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "stage_sns_clean.dt",
+        "target": "stage_sns_cte.dt"
+      },
+      {
+        "expr": "SUM(likes)",
+        "kind": "value",
+        "source": "stage_sns_clean.likes",
+        "target": "stage_sns_cte.tot_likes"
+      },
+      {
+        "expr": "GROUP BY dt",
+        "kind": "control",
+        "source": "stage_sns_clean.dt",
+        "target": "stage_sns_cte.tot_likes"
+      },
+      {
+        "expr": "SUM(tot_likes) OVER (ORDER BY dt)",
+        "kind": "value",
+        "source": "stage_sns_clean.likes",
+        "target": "stage_sns_cte.cum"
+      },
+      {
+        "expr": "ORDER BY dt",
+        "kind": "control",
+        "source": "stage_sns_clean.dt",
+        "target": "stage_sns_cte.cum"
+      }
+    ]
+  }
+}

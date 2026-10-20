@@ -1,0 +1,219 @@
+{
+  "dialect": "bigquery",
+  "edges": {
+    "bigquery/21_stage_evt_clean.sql": [
+      {
+        "expr": "e.evt_id",
+        "kind": "value",
+        "source": "raw_evt.evt_id",
+        "target": "stage_evt_clean.evt_id"
+      },
+      {
+        "expr": "e.usr",
+        "kind": "value",
+        "source": "raw_evt.usr",
+        "target": "stage_evt_clean.usr"
+      },
+      {
+        "expr": "e.ev",
+        "kind": "value",
+        "source": "raw_evt.ev",
+        "target": "stage_evt_clean.ev"
+      },
+      {
+        "expr": "e.amt",
+        "kind": "value",
+        "source": "raw_evt.amt",
+        "target": "stage_evt_clean.amt"
+      },
+      {
+        "expr": "e.dt",
+        "kind": "value",
+        "source": "raw_evt.dt",
+        "target": "stage_evt_clean.dt"
+      },
+      {
+        "expr": "WHERE e.ev IN ('a', 'b')",
+        "kind": "control",
+        "source": "raw_evt.ev",
+        "target": "stage_evt_clean.evt_id"
+      }
+    ],
+    "bigquery/22_stage_evt_join_cfg.sql": [
+      {
+        "expr": "e.evt_id",
+        "kind": "value",
+        "source": "stage_evt_clean.evt_id",
+        "target": "stage_evt_join_cfg.evt_id"
+      },
+      {
+        "expr": "e.usr",
+        "kind": "value",
+        "source": "stage_evt_clean.usr",
+        "target": "stage_evt_join_cfg.usr"
+      },
+      {
+        "expr": "c.cfg_val",
+        "kind": "value",
+        "source": "raw_cfg.cfg_val",
+        "target": "stage_evt_join_cfg.cfg_val"
+      },
+      {
+        "expr": "JOIN c.cfg_key = e.ev",
+        "kind": "control",
+        "source": "raw_cfg.cfg_key",
+        "target": "stage_evt_join_cfg.cfg_val"
+      }
+    ],
+    "bigquery/23_mart_usr_daily.sql": [
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "stage_evt_clean.dt",
+        "target": "mart_usr_daily.dt"
+      },
+      {
+        "expr": "GROUP BY dt",
+        "kind": "control",
+        "source": "stage_evt_clean.dt",
+        "target": "mart_usr_daily.dt"
+      },
+      {
+        "expr": "usr",
+        "kind": "value",
+        "source": "stage_evt_clean.usr",
+        "target": "mart_usr_daily.usr"
+      },
+      {
+        "expr": "GROUP BY usr",
+        "kind": "control",
+        "source": "stage_evt_clean.usr",
+        "target": "mart_usr_daily.usr"
+      },
+      {
+        "expr": "SUM(amt)",
+        "kind": "value",
+        "source": "stage_evt_clean.amt",
+        "target": "mart_usr_daily.tot_amt"
+      },
+      {
+        "expr": "HAVING COUNT(*) >= 1",
+        "kind": "control",
+        "source": "stage_evt_clean.usr",
+        "target": "mart_usr_daily.tot_amt"
+      }
+    ],
+    "bigquery/24_mart_usr_daily_rank.sql": [
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "mart_usr_daily.dt",
+        "target": "mart_usr_daily_rank.dt"
+      },
+      {
+        "expr": "usr",
+        "kind": "value",
+        "source": "mart_usr_daily.usr",
+        "target": "mart_usr_daily_rank.usr"
+      },
+      {
+        "expr": "tot_amt",
+        "kind": "value",
+        "source": "mart_usr_daily.tot_amt",
+        "target": "mart_usr_daily_rank.tot_amt"
+      },
+      {
+        "expr": "PARTITION BY usr",
+        "kind": "control",
+        "source": "mart_usr_daily.usr",
+        "target": "mart_usr_daily_rank.rk"
+      },
+      {
+        "expr": "ORDER BY tot_amt DESC",
+        "kind": "control",
+        "source": "mart_usr_daily.tot_amt",
+        "target": "mart_usr_daily_rank.rk"
+      }
+    ],
+    "bigquery/25_stage_evt_x.sql": [
+      {
+        "expr": "evt_id",
+        "kind": "value",
+        "source": "stage_evt_clean.evt_id",
+        "target": "stage_evt_x.evt_id"
+      },
+      {
+        "expr": "amt * 2",
+        "kind": "value",
+        "source": "stage_evt_clean.amt",
+        "target": "stage_evt_x.amt_x"
+      }
+    ],
+    "bigquery/26_mart_amt_x_sum.sql": [
+      {
+        "expr": "GROUP BY dt",
+        "kind": "value",
+        "source": "stage_evt_x.evt_id",
+        "target": "mart_amt_x_sum.dt"
+      },
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "stage_evt_x.dt",
+        "target": "mart_amt_x_sum.dt"
+      },
+      {
+        "expr": "GROUP BY dt",
+        "kind": "control",
+        "source": "stage_evt_x.dt",
+        "target": "mart_amt_x_sum.dt"
+      },
+      {
+        "expr": "SUM(amt_x)",
+        "kind": "value",
+        "source": "stage_evt_x.amt_x",
+        "target": "mart_amt_x_sum.tot_x"
+      }
+    ],
+    "bigquery/28_mart_rank_pick.sql": [
+      {
+        "expr": "usr",
+        "kind": "value",
+        "source": "mart_usr_daily_rank.usr",
+        "target": "mart_rank_pick.usr"
+      },
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "mart_usr_daily_rank.dt",
+        "target": "mart_rank_pick.dt"
+      },
+      {
+        "expr": "rk",
+        "kind": "value",
+        "source": "mart_usr_daily_rank.rk",
+        "target": "mart_rank_pick.rk"
+      },
+      {
+        "expr": "WHERE rk = 1",
+        "kind": "control",
+        "source": "mart_usr_daily_rank.rk",
+        "target": "mart_rank_pick.rk"
+      }
+    ],
+    "bigquery/29_stage_evt_distinct.sql": [
+      {
+        "expr": "usr",
+        "kind": "value",
+        "source": "stage_evt_clean.usr",
+        "target": "stage_evt_distinct.usr"
+      },
+      {
+        "expr": "ev",
+        "kind": "value",
+        "source": "stage_evt_clean.ev",
+        "target": "stage_evt_distinct.ev"
+      }
+    ]
+  }
+}

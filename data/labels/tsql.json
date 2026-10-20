@@ -1,0 +1,169 @@
+{
+  "dialect": "tsql",
+  "edges": {
+    "tsql/31_stage_inv_clean.sql": [
+      {
+        "expr": "i.inv_id",
+        "kind": "value",
+        "source": "raw_inv.inv_id",
+        "target": "stage_inv_clean.inv_id"
+      },
+      {
+        "expr": "i.loc",
+        "kind": "value",
+        "source": "raw_inv.loc",
+        "target": "stage_inv_clean.loc"
+      },
+      {
+        "expr": "i.qty",
+        "kind": "value",
+        "source": "raw_inv.qty",
+        "target": "stage_inv_clean.qty"
+      },
+      {
+        "expr": "i.dt",
+        "kind": "value",
+        "source": "raw_inv.dt",
+        "target": "stage_inv_clean.dt"
+      }
+    ],
+    "tsql/32_stage_inv_wh.sql": [
+      {
+        "expr": "i.inv_id",
+        "kind": "value",
+        "source": "stage_inv_clean.inv_id",
+        "target": "stage_inv_wh.inv_id"
+      },
+      {
+        "expr": "w.wh",
+        "kind": "value",
+        "source": "raw_wh.wh",
+        "target": "stage_inv_wh.wh"
+      },
+      {
+        "expr": "i.qty",
+        "kind": "value",
+        "source": "stage_inv_clean.qty",
+        "target": "stage_inv_wh.qty"
+      },
+      {
+        "expr": "JOIN w.loc = i.loc",
+        "kind": "control",
+        "source": "raw_wh.loc",
+        "target": "stage_inv_wh.wh"
+      }
+    ],
+    "tsql/33_mart_inv_daily.sql": [
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "stage_inv_clean.dt",
+        "target": "mart_inv_daily.dt"
+      },
+      {
+        "expr": "GROUP BY dt",
+        "kind": "control",
+        "source": "stage_inv_clean.dt",
+        "target": "mart_inv_daily.dt"
+      },
+      {
+        "expr": "SUM(qty)",
+        "kind": "value",
+        "source": "stage_inv_clean.qty",
+        "target": "mart_inv_daily.tot_qty"
+      }
+    ],
+    "tsql/34_mart_inv_var.sql": [
+      {
+        "expr": "inv_id",
+        "kind": "value",
+        "source": "stage_inv_wh.inv_id",
+        "target": "mart_inv_var.inv_id"
+      },
+      {
+        "expr": "CASE WHEN qty > 1 THEN qty ELSE 0 END",
+        "kind": "value",
+        "source": "stage_inv_wh.qty",
+        "target": "mart_inv_var.qty_var"
+      },
+      {
+        "expr": "CASE WHEN qty > 1",
+        "kind": "control",
+        "source": "stage_inv_wh.qty",
+        "target": "mart_inv_var.qty_var"
+      }
+    ],
+    "tsql/37_stage_inv_backup.sql": [
+      {
+        "expr": "inv_id",
+        "kind": "value",
+        "source": "stage_inv_clean.inv_id",
+        "target": "stage_inv_backup.inv_id"
+      },
+      {
+        "expr": "loc",
+        "kind": "value",
+        "source": "stage_inv_clean.loc",
+        "target": "stage_inv_backup.loc"
+      },
+      {
+        "expr": "qty",
+        "kind": "value",
+        "source": "stage_inv_clean.qty",
+        "target": "stage_inv_backup.qty"
+      },
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "stage_inv_clean.dt",
+        "target": "stage_inv_backup.dt"
+      },
+      {
+        "expr": "WHERE dt IS NOT NULL",
+        "kind": "control",
+        "source": "stage_inv_clean.dt",
+        "target": "stage_inv_backup.dt"
+      }
+    ],
+    "tsql/38_mart_loc_map.sql": [
+      {
+        "expr": "loc",
+        "kind": "value",
+        "source": "raw_wh.loc",
+        "target": "mart_loc_map.loc"
+      },
+      {
+        "expr": "wh",
+        "kind": "value",
+        "source": "raw_wh.wh",
+        "target": "mart_loc_map.wh"
+      },
+      {
+        "expr": "WHERE wh IS NOT NULL",
+        "kind": "control",
+        "source": "raw_wh.wh",
+        "target": "mart_loc_map.wh"
+      }
+    ],
+    "tsql/39_mart_inv_daily_reader.sql": [
+      {
+        "expr": "dt",
+        "kind": "value",
+        "source": "mart_inv_daily.dt",
+        "target": "mart_inv_daily_reader.dt"
+      },
+      {
+        "expr": "tot_qty",
+        "kind": "value",
+        "source": "mart_inv_daily.tot_qty",
+        "target": "mart_inv_daily_reader.tot_qty"
+      },
+      {
+        "expr": "WHERE tot_qty > 0",
+        "kind": "control",
+        "source": "mart_inv_daily.tot_qty",
+        "target": "mart_inv_daily_reader.tot_qty"
+      }
+    ]
+  }
+}
