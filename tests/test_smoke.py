@@ -33,8 +33,14 @@ def test_cli_version(capsys):
 
 
 def test_cli_subcommands_placeholder_exit0():
-    for argv in (["lineage", "."], ["census", "."], ["golden"]):
+    """M0 骨架期占位检查；M5 起 `diff`/`impact`/`golden` 有真实语义，冒烟只验可跑。
+
+    `golden` 无 expected.json 时退 3（§4.9 防空跑全绿），故此处改用 argparse 帮助路径。
+    """
+    for argv in (["lineage", "."], ["census", "."]):
         assert main(argv) == 0
+    with pytest.raises(SystemExit):
+        main(["golden", "--help"])  # 用法可用即算骨架在位
 
 
 def test_cli_unknown_command_exits_usage():

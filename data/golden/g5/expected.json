@@ -1,0 +1,24 @@
+{
+  "diff": {
+    "base": "corpus",
+    "current": "corpus_v2",
+    "removed": [["leaf.nm", "value"]],
+    "added": [["mid1.cd", "value"], ["mid2.cd", "value"]],
+    "changed": [["mid1.nm", "value"]],
+    "changed_sources": [
+      ["mid1.nm", "value", ["raw_src.nm"], ["raw_src2.nm"]]
+    ],
+    "exit_code": 1
+  },
+  "impact": {
+    "target": "raw_src.nm",
+    "downstream": [
+      ["mid1.nm", 1],
+      ["mid2.nm", 2],
+      ["leaf.nm", 3]
+    ],
+    "final_consumers": ["leaf.nm"],
+    "intermediate_tables": ["mid1", "mid2"],
+    "reading_tables": ["mid1", "mid2", "raw_src"]
+  }
+}

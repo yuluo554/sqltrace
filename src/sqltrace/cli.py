@@ -14,6 +14,21 @@ from . import __version__
 from .census import census, census_summary, render_markdown
 from .constants import DIALECTS, EXIT_INTERNAL, EXIT_OK, EXIT_USAGE
 from .core import build_edges
+from .diffgate import (
+    BaseUsageError,
+    gate_check,
+    diff_edges,
+    diff_exit_code,
+    diff_payload,
+    diff_summary,
+    golden_to_dict,
+    impact,
+    load_base,
+    render_diff_markdown,
+    render_golden_text,
+    render_impact_text,
+    run_golden,
+)
 from .fallback import assert_reason_codes, zero_silence_violations
 from .loader import load_corpus
 from .output import dumps_json, ensure_deterministic_stdio
@@ -41,15 +56,20 @@ def _build_parser() -> argparse.ArgumentParser:
     p_diff = sub.add_parser("diff", help="lineage diff 闸门（M5）")
     p_diff.add_argument("root", type=Path)
     p_diff.add_argument("--base", required=True, help="git ref 或第二个目录")
+    p_diff.add_argument("--dialect", choices=DIALECTS, default=None)
     p_diff.add_argument("--json", action="store_true")
     p_diff.add_argument("--md", action="store_true")
 
     p_impact = sub.add_parser("impact", help="反向影响查询（M5）")
-    p_impact.add_argument("target", help="<table>.<column>，如 raw.cust.nm")
-    p_impact.add_argument("root", type=Path)
+    p_impact.add_argument("target", help="<table>.<column>，如 raw_cust.nm")
+    p_impact.add_argument("root", type=Path, help="SQL 语料目录")
+    p_impact.add_argument("--dialect", choices=DIALECTS, default=None)
+    p_impact.add_argument("--json", action="store_true")
 
     p_golden = sub.add_parser("golden", help="五条 golden 回归（M5）")
     p_golden.add_argument("path", type=Path, nargs="?", default=Path("data/golden"))
+    p_golden.add_argument("--dialect", choices=DIALECTS, default=None)
+    p_golden.add_argument("--json", action="store_true")
 
     return parser
 
@@ -130,7 +150,7 @@ def main(argv: list | None = None) -> int:
                     "unregistered_reason_codes": unknown_codes,
                 },
             }
-            print(dumps_json(payload))
+            sys.stdout.write(dumps_json(payload))
             return _gate_exit(silent, unknown_codes)
 
         by_kind = {"value": 0, "control": 0, "unknown": 0}
@@ -175,7 +195,7 @@ def main(argv: list | None = None) -> int:
                     "edges_missing_writer": orphan_edges,
                 },
             }
-            print(dumps_json(payload))
+            sys.stdout.write(dumps_json(payload))
         elif args.md:
             print(render_markdown(report, __version__), end="")
         else:
@@ -189,6 +209,97 @@ def main(argv: list | None = None) -> int:
         for table in orphan_edges:
             print(f"sqltrace: 台账不一致（§4.8）：表 {table} 有边但无写者", file=sys.stderr)
         return EXIT_INTERNAL if (silent or unknown_codes or orphan_edges) else EXIT_OK
+
+    if args.command == "diff":
+        root = Path(args.root)
+        if not root.is_dir():
+            print(f"sqltrace: 语料目录不存在: {root}", file=sys.stderr)
+            return EXIT_USAGE
+        try:
+            base_corpus, base_kind = load_base(root, args.base, args.dialect)
+        except BaseUsageError as exc:
+            print(f"sqltrace: {exc}", file=sys.stderr)
+            return EXIT_USAGE
+
+        cur_corpus = load_corpus(root, None, args.dialect)
+        base_edges, base_diags = build_edges(base_corpus)
+        cur_edges, cur_diags = build_edges(cur_corpus)
+
+        # 门复用（K10/K13）：基线 + 当前各跑同一份零静默门与枚举守卫，不得各判一套
+        base_gate = gate_check(base_corpus, base_edges, base_diags)
+        cur_gate = gate_check(cur_corpus, cur_edges, cur_diags)
+
+        changes = diff_edges(base_edges, cur_edges)
+        payload = diff_payload(__version__, base_corpus, base_kind, args.base,
+                               cur_corpus, str(args.root), changes, base_gate, cur_gate)
+
+        if args.json:
+            sys.stdout.write(dumps_json(payload))
+        elif args.md:
+            print(render_diff_markdown(payload, __version__), end="")
+        else:
+            print(f"sqltrace {__version__}: 血缘 diff · {diff_summary(payload)}。")
+
+        gate_ok = base_gate[0] and cur_gate[0]
+        for label, gate in (("基线", base_gate), ("当前", cur_gate)):
+            if not gate[0]:
+                print(f"sqltrace: {label}语料门 FAIL：{gate[1]}", file=sys.stderr)
+        if not gate_ok:  # §4.4：内部一致性门失败 = 缺陷 → 4，不掩盖成 diff 语义码
+            return EXIT_INTERNAL
+        return diff_exit_code(changes)
+
+    if args.command == "impact":
+        root = Path(args.root)
+        if not root.is_dir():
+            print(f"sqltrace: 语料目录不存在: {root}", file=sys.stderr)
+            return EXIT_USAGE
+        corpus = load_corpus(root, None, args.dialect)
+        edges, edge_diags = build_edges(corpus)
+        diags = _all_diags(corpus, edge_diags)
+
+        silent = zero_silence_violations(corpus.write_ids, edges, diags)
+        unknown_codes = assert_reason_codes(edges, diags)
+        try:
+            report = impact(corpus, edges, args.target)
+        except BaseUsageError as exc:
+            print(f"sqltrace: {exc}", file=sys.stderr)
+            return EXIT_USAGE
+
+        if args.json:
+            payload = {
+                "version": __version__,
+                "impact": report,
+                "zero_silence": {
+                    "passed": not silent and not unknown_codes,
+                    "silent_statements": silent,
+                    "unregistered_reason_codes": unknown_codes,
+                },
+            }
+            sys.stdout.write(dumps_json(payload))
+        else:
+            print(render_impact_text(report, __version__), end="")
+        return _gate_exit(silent, unknown_codes)
+
+    if args.command == "golden":
+        path = Path(args.path)
+        if not path.is_dir():
+            print(f"sqltrace: golden 目录不存在: {path}", file=sys.stderr)
+            return EXIT_USAGE
+        results, code = run_golden(path, args.dialect)
+        if not results:
+            print(f"sqltrace: `{path}` 下没有含 expected.json 的 golden", file=sys.stderr)
+            return code
+        if args.json:
+            body = {"version": __version__}
+            body.update(golden_to_dict(results))
+            body["exit_code"] = code
+            sys.stdout.write(dumps_json(body))
+        else:
+            print(render_golden_text(results, __version__), end="")
+        for r in results:
+            for name, detail in r.failures():
+                print(f"sqltrace: golden `{r.name}` {name} FAIL：{detail}", file=sys.stderr)
+        return code
 
     print(f"sqltrace {__version__}: 子命令 `{args.command}` 骨架就绪，实现于 M5。")
     return EXIT_OK

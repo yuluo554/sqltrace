@@ -1,0 +1,9 @@
+{
+  "census": {
+    "multi_writer": [
+      {"table": "stage_hot", "writers": [["a.sql", 1], ["b.sql", 0]]}
+    ],
+    "orphan": ["raw_g4"],
+    "write_only": ["raw_orphan", "stage_hot"]
+  }
+}

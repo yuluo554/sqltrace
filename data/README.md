@@ -129,6 +129,8 @@
 
 `lineage` / `census` / `impact` 成功返回 `0`；有 `PARSE_ERROR` 但仍能完成时返回 `0` 并把错误写进 `diagnostics[]`（**不静默**），只有无法完成时才返回 `3`。
 
+**`diff` / `golden` 专属语义（M5）**：`0` / `1` / `2` 只属于 `diff`；`golden` 期望侧不符或门红一律 `4`。**不得**把 `1`/`2` 用到 `lineage`/`census`/`impact`（它们成功恒 `0`）。
+
 ### 4.5 方言列表（封闭集合）
 
 `postgres` / `snowflake` / `bigquery` / `tsql` / `duckdb`。方言由文件扩展或 `--dialect` 指定；无法判定时默认 `postgres` 并在诊断里记 `dialect_defaulted`（**不静默**）。
@@ -171,6 +173,28 @@
 6. **排序**：表名升序；表内条目按 `(file, statement_index)` 升序（§4.6）。
 7. **零静默门复用**：`census` 跑同一份边集，同样执行 §4.2 规则 4 的机械门；失败 → 退出码 `4`（§4.4）。
 8. **台账自检**：每条血缘边的 `target_table` 必须登记过写者，否则 `edges_missing_writer[]` 非空即内部不一致（退出码 `4`）。这是写者台账与边集的一致性证明，不是业务规则。
+
+### 4.9 diff / impact / golden 口径（M5）
+
+三者的判据同样机械，**不做语义推断**（不输出"破坏性程度""风险等级"）。
+
+**规则 1 — 边级 diff 的分组键**：`(target_table, target_column, kind)`。key 在基线存在、当前不存在 → `REMOVED`；反向 → `ADDED`；两侧都有但**来源集合**不同 → `CHANGED`。`kind` 变化视为旧 key 消失 + 新 key 出现（不是 `CHANGED`）——因为 kind 是分组键的一部分。
+
+**规则 2 — 来源集合元素**：`source_table.source_column`；`unknown` 边（`source_table=None`）记字面 `null`，**不得**编造表名。
+
+**规则 3 — diff 排序**：三节各自按 `(target_table, target_column, kind)` 升序（§4.6）；同一节点的来源列表按"`null` 在前，其余码点升序"（§4.6）。
+
+**规则 4 — 基线两模式同内核**：`--base <dir>` 直读目录；`--base <git-ref>` 用只读 `git ls-tree` + `git show <ref>:<path>` 取内容（**不切工作区、不写文件**）。两模式喂**同一个装载内核**（`loader._assemble_corpus`），故同一点必须产出同一份边集与**同一个文件 sha256**（sha 一律取"解码文本"的 sha，见 §4.6 序列化口径）。`git` 不可用 / ref 不存在 / `root` 不在仓库内 → 退出码 `3`。
+
+**规则 5 — impact 上游/下游**：以 `<table>.<column>` 为起点，在边集的有向图上做闭包——`upstream_sources` = 反向（谁产出了它）、`downstream_consumers` = 正向（它产出了谁）。`unknown` 边无来源表，**不入图**；自环（`INSERT INTO t ... FROM t`）不入闭包。
+
+**规则 6 — impact 穿透与最终消费者**：闭包不受单层限制（上限 `§4.7` 展开层数；同时兼作环保护）。`final_consumers` = 下游闭包中**没有更下游**的节点；`intermediate_tables` = 下游列所在的表里**既非目标表也非汇点**的那些。"穿透 N 层中间表" 的机械判据 = `len(intermediate_tables) == N`。
+
+**规则 7 — impact 表级读者**：`reading_statements` 取 `corpus.reads`（**K13 口径**，不从边集反推）——纯 `SELECT` 不产边但它是消费者。目标表不在血缘图（schema ∪ 写者台账 ∪ 读者台账）→ 退出码 `3`（防打错表名得空结果）。
+
+**规则 8 — golden 期望侧冻结**：`data/golden/g<k>/expected.json` 是**按本节口径人工推导**的期望，**不得**由实现反向生成（防"实现即真值"循环，`plan/04 §二`）。顶层键只认 `lineage` / `census` / `impact` / `diff` 且至少一个——拼错或写空必须红，不得静默通过。`golden` 的每一份语料都跑 §4.2 规则 4 的零静默门与封闭枚举守卫（与 `lineage`/`census` 同一份，不各判一套）；期望不符或门红 → 退出码 `4`。找不到任何含 `expected.json` 的 golden → 退出码 `3`（防空跑全绿）。
+
+**规则 9 — 确定性**：`diff` / `impact` / `golden` 的 JSON 同输入两次运行字节级一致（单一出口 `output.dumps_json`；§4.6）；输出**不得**含时间戳、绝对路径或 Windows 反斜杠（`--base`/`root` 给绝对路径时只报计数、`ref` 记 `null`）。
 
 ## 五、可复现记录附录
 

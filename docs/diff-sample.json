@@ -1,0 +1,86 @@
+{
+  "version": "0.1.0.dev0",
+  "mode": "dir",
+  "base": {
+    "kind": "dir",
+    "ref": "data/golden/g5/corpus",
+    "files": 1,
+    "statements": 4
+  },
+  "current": {
+    "ref": "data/golden/g5/corpus_v2",
+    "files": 1,
+    "statements": 4
+  },
+  "changes": {
+    "added": [
+      {
+        "target": "mid1.cd",
+        "kind": "value",
+        "sources": [
+          "raw_src2.cd"
+        ],
+        "statements": [
+          "v2.sql#2"
+        ]
+      },
+      {
+        "target": "mid2.cd",
+        "kind": "value",
+        "sources": [
+          "mid1.cd"
+        ],
+        "statements": [
+          "v2.sql#3"
+        ]
+      }
+    ],
+    "removed": [
+      {
+        "target": "leaf.nm",
+        "kind": "value",
+        "sources": [
+          "mid2.nm"
+        ],
+        "statements": [
+          "v1.sql#3"
+        ]
+      }
+    ],
+    "changed": [
+      {
+        "target": "mid1.nm",
+        "kind": "value",
+        "base_sources": [
+          "raw_src.nm"
+        ],
+        "current_sources": [
+          "raw_src2.nm"
+        ],
+        "base_statements": [
+          "v1.sql#1"
+        ],
+        "current_statements": [
+          "v2.sql#2"
+        ]
+      }
+    ]
+  },
+  "summary": {
+    "added": 2,
+    "removed": 1,
+    "changed": 1,
+    "exit_code": 1
+  },
+  "zero_silence": {
+    "passed": true,
+    "base": {
+      "passed": true,
+      "detail": "零静默门 + 枚举守卫通过"
+    },
+    "current": {
+      "passed": true,
+      "detail": "零静默门 + 枚举守卫通过"
+    }
+  }
+}

@@ -225,8 +225,8 @@ def load_corpus(root: Path, schema_file: Path | None = None,
     root = Path(root)
     ignore = _Gitignore(root)
 
-    # ---- 文件清单（排序 + sha256 + 方言判定） ----
-    stmts: list[Statement] = []
+    # ---- 文件清单（目录枚举 + .gitignore + sha256）----
+    items: list[tuple[str, str, str]] = []
     for p in sorted(root.rglob("*.sql")):
         if any(part in (".git", ".hg", ".svn") for part in p.parts):
             continue
@@ -235,6 +235,32 @@ def load_corpus(root: Path, schema_file: Path | None = None,
         if why:
             corpus.ignored.append({"path": rel, "reason": why})
             continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        items.append((rel, text, _sha256_text(text)))
+
+    return _assemble_corpus(corpus, items, schema_file, dialect)
+
+
+def load_corpus_from_texts(files, schema_file: Path | None = None,
+                           dialect: str | None = None) -> Corpus:
+    """从"已取好的文本"装载 Corpus（M5 git 模式：内容来自 `git show`，不切工作区）。
+
+    `files` = `[(rel_path, text)]`，`rel_path` **相对语料根目录**（调用方已剥掉仓库前缀）、
+    分隔符 `/`（§4.6）。与目录模式共用 `_assemble_corpus`——**两种 diff 模式喂同一内核**。
+    """
+    items = [(rel, text, _sha256_text(text)) for rel, text in sorted(files)]
+    return _assemble_corpus(Corpus(), items, schema_file, dialect)
+
+
+def _assemble_corpus(corpus: Corpus, items, schema_file: Path | None,
+                     dialect: str | None) -> Corpus:
+    """装载内核（目录 / git 两模式共用）：方言判定 + 语句切分 + schema 推导 + 拓扑排序。
+
+    `items` = `[(rel_path, text, sha256)]`，顺序即 `corpus.files` 顺序（调用方已排序）。
+    """
+    # ---- 文件清单 + 语句切分（方言判定 §4.5 / 语句数上限 §4.7） ----
+    stmts: list[Statement] = []
+    for rel, text, sha in items:
         file_dialect, defaulted = _dialect_for(rel, dialect)
         if defaulted:
             corpus.diagnostics.append(Diagnostic(
@@ -243,9 +269,8 @@ def load_corpus(root: Path, schema_file: Path | None = None,
                 message=f"dialect defaulted to {DEFAULT_DIALECT}",
                 approximate=True,
             ))
-        corpus.files.append({"path": rel, "sha256": _sha256(p), "dialect": file_dialect})
+        corpus.files.append({"path": rel, "sha256": sha, "dialect": file_dialect})
 
-        text = p.read_text(encoding="utf-8", errors="replace")
         raw_parts = _split_statements(text)
         if len(raw_parts) > MAX_STATEMENTS_PER_FILE:
             corpus.diagnostics.append(Diagnostic(
@@ -348,5 +373,10 @@ def iter_statements(corpus: Corpus):
     yield from corpus.statements
 
 
-def _sha256(p: Path) -> str:
-    return hashlib.sha256(p.read_bytes()).hexdigest()
+def _sha256_text(text: str) -> str:
+    """语料文件 sha256 = **解码后文本**的 sha256（目录模式与 git 模式共用这一个出口）。
+
+    不能哈希原始字节：`read_text` 走通用换行（CRLF→LF），git 模式拿到的是已解码文本；
+    若目录模式哈希原始字节，同一棵树在两模式下 sha 不同（M5 实测缺陷）。
+    """
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()

@@ -2,7 +2,7 @@
 
 **纯本地 Python CLI**：无数据库连接、无服务端、无网络请求、无图形界面。安装后命令名 `sqltrace`。
 
-> 状态：**M4 写入者普查完成**（M0 装订骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边 + M3 降级策略与零静默门 + M4 写入者普查五节）；M5–M6 未开工，里程碑状态见 `plan/00` §六。
+> 状态：**M5 diff 闸门与输出完成**（M0 装订骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边 + M3 降级策略与零静默门 + M4 写入者普查五节 + M5 diff/impact/golden）；M6 发布未开工，里程碑状态见 `plan/00` §六。
 
 ## 定位（诚实边界）
 
@@ -16,14 +16,14 @@
 
 **零静默是可执行的门，不是口号**：`sqltrace lineage` 对每条写语句断言"有边或有诊断"，任何静默丢弃都会让它以退出码 `4` 失败。
 
-## 命令树（骨架就绪，M1–M5 落地）
+## 命令树（M1–M5 全部落地）
 
 ```bash
-sqltrace lineage <dir> --json        # 列级血缘（M2/M3 已落地）
+sqltrace lineage <dir> --json        # 列级血缘（M2/M3）
 sqltrace census  <dir> --md          # 写入者普查报表（M4）
-sqltrace diff    <dir> --base <ref>  # lineage diff 闸门（M5）
-sqltrace impact  raw.cust.nm <dir>   # 反向影响，穿透中间表（M5）
-sqltrace golden  data/golden         # 五条 golden 回归（M5）
+sqltrace diff    <dir> --base <ref>  # lineage diff 闸门（M5；退出码 0/1/2/3/4）
+sqltrace impact  raw_cust.nm <dir>   # 反向影响，穿透中间表（M5）
+sqltrace golden  data/golden         # 五条 golden 回归（M5；一条命令全绿）
 ```
 
 ## 安装与开发

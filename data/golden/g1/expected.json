@@ -1,0 +1,13 @@
+{
+  "lineage": {
+    "edges": [
+      {"target": "stage_w.id", "source": "raw_w.id", "kind": "value"},
+      {"target": "stage_w.x", "source": "raw_w.x", "kind": "value"},
+      {"target": "stage_w.w", "source": "raw_w.x", "kind": "value"},
+      {"target": "stage_w.w", "source": "raw_w.k", "kind": "control"}
+    ],
+    "forbid": [
+      {"target": "stage_w.w", "source": "raw_w.k", "kind": "value"}
+    ]
+  }
+}

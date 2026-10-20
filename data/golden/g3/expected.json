@@ -1,0 +1,12 @@
+{
+  "lineage": {
+    "edges": [
+      {"target": "stage_g3.c1", "source": "raw_g3.b", "kind": "value"},
+      {"target": "stage_g3.c2", "source": "raw_g3.a", "kind": "value"}
+    ],
+    "forbid": [
+      {"target": "stage_g3.c1", "source": "raw_g3.a", "kind": "value"},
+      {"target": "stage_g3.c2", "source": "raw_g3.b", "kind": "value"}
+    ]
+  }
+}

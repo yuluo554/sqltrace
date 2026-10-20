@@ -1,0 +1,10 @@
+{
+  "lineage": {
+    "edges": [
+      {"target": "stage_star.*", "source": null, "kind": "unknown"}
+    ],
+    "forbid": [
+      {"target": "stage_star.anything", "source": "raw_unknown.anything", "kind": "value"}
+    ]
+  }
+}
