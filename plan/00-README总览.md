@@ -1,5 +1,7 @@
 # 00 · README 总览 — 10-20-sqltrace（SQL 值/控制双通道血缘）
 
+> 方法论：`ai-tool-project-sprint`（装订 2026-10-20）｜布局门：`py -X utf8 tools/check_sprint_layout.py`｜续接对话第一件事 = 跑它
+
 > 方法论：`ai-tool-topic-definer` 阶段 4（骨架四件套）｜**续接对话第一件事 = 读本文档 §二 决策记录与 §六 里程碑**
 
 - **项目**：SQLTrace——SQL 值/控制双通道血缘 + 写入者普查 + diff 闸门（**纯本地 Python CLI**）

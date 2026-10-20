@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sqltrace"
+version = "0.1.0.dev0"
+description = "SQL 值/控制双通道血缘 + 写入者普查 + diff 闸门（纯本地 Python CLI，零网络）"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "yuluo554" }]
+keywords = ["sql", "lineage", "column-level-lineage", "census", "ci-gate"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Programming Language :: Python :: 3.8",
+  "Topic :: Software Development :: Quality Assurance",
+]
+# data/README.md §二：运行期仅 sqlglot + 标准库；钉死版本区间（30.x schema 必填漂移）
+dependencies = ["sqlglot>=30.20,<31"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+sqltrace = "sqltrace.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
