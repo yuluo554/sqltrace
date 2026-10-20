@@ -11,8 +11,9 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .constants import DIALECTS, EXIT_OK, EXIT_USAGE
+from .constants import DIALECTS, EXIT_INTERNAL, EXIT_OK, EXIT_USAGE
 from .core import build_edges
+from .fallback import assert_reason_codes, zero_silence_violations
 from .loader import load_corpus
 from .output import dumps_json, ensure_deterministic_stdio
 
@@ -57,7 +58,13 @@ def _load_or_exit(args) -> object | None:
     if not root.is_dir():
         print(f"sqltrace: 语料目录不存在: {root}", file=sys.stderr)
         return None
-    return load_corpus(root, getattr(args, "schema", None))
+    return load_corpus(root, getattr(args, "schema", None), getattr(args, "dialect", None))
+
+
+def _all_diags(corpus, edge_diags) -> list:
+    """装载期 + 内核期诊断合并（§4.6 排序键），供输出与零静默门共用。"""
+    return sorted(list(corpus.diagnostics) + list(edge_diags),
+                  key=lambda d: d.sort_key())
 
 
 def main(argv: list | None = None) -> int:
@@ -73,6 +80,13 @@ def main(argv: list | None = None) -> int:
         if corpus is None:
             return EXIT_USAGE
         edges, edge_diags = build_edges(corpus)
+        diags = _all_diags(corpus, edge_diags)
+
+        # §4.2 规则 4：零静默机械门（写语句必须"有边或有语句级诊断"）
+        silent = zero_silence_violations(corpus.write_ids, edges, diags)
+        # §4.2 封闭枚举：任何未登记的 reason code 即缺陷
+        unknown_codes = assert_reason_codes(edges, diags)
+
         if args.json:
             payload = {
                 "version": __version__,
@@ -89,8 +103,9 @@ def main(argv: list | None = None) -> int:
                         "statement_index": d.statement_index,
                         "reason_code": d.reason_code,
                         "message": d.message,
+                        "approximate": d.approximate,
                     }
-                    for d in corpus.diagnostics
+                    for d in diags
                 ],
                 "edges": [
                     {
@@ -108,9 +123,15 @@ def main(argv: list | None = None) -> int:
                     }
                     for e in edges
                 ],
+                "zero_silence": {
+                    "passed": not silent and not unknown_codes,
+                    "silent_statements": silent,
+                    "unregistered_reason_codes": unknown_codes,
+                },
             }
             print(dumps_json(payload))
-            return EXIT_OK
+            return _gate_exit(silent, unknown_codes)
+
         by_kind = {"value": 0, "control": 0, "unknown": 0}
         for e in edges:
             by_kind[e.kind] = by_kind.get(e.kind, 0) + 1
@@ -118,12 +139,23 @@ def main(argv: list | None = None) -> int:
             f"sqltrace {__version__}: 装载 {len(corpus.files)} 个文件 / "
             f"{len(corpus.statements)} 条语句 / {len(corpus.schemas)} 张表 schema / "
             f"血缘边 {len(edges)} 条（value {by_kind['value']} / control {by_kind['control']} / "
-            f"unknown {by_kind['unknown']}）/ {len(corpus.diagnostics) + len(edge_diags)} 条诊断。"
+            f"unknown {by_kind['unknown']}）/ {len(diags)} 条诊断。"
         )
-        return EXIT_OK
+        if silent:
+            for sid in silent:
+                print(f"sqltrace: 零静默门 FAIL：写语句无边也无诊断 {sid}", file=sys.stderr)
+        if unknown_codes:
+            print(f"sqltrace: reason code 未登记（§4.2）：{', '.join(unknown_codes)}",
+                  file=sys.stderr)
+        return _gate_exit(silent, unknown_codes)
 
-    print(f"sqltrace {__version__}: 子命令 `{args.command}` 骨架就绪，实现于 M2–M5。")
+    print(f"sqltrace {__version__}: 子命令 `{args.command}` 骨架就绪，实现于 M4–M5。")
     return EXIT_OK
+
+
+def _gate_exit(silent, unknown_codes) -> int:
+    """内部一致性门失败 = 缺陷 → 退出码 4（§4.4），不随成功路径返回 0。"""
+    return EXIT_INTERNAL if (silent or unknown_codes) else EXIT_OK
 
 
 if __name__ == "__main__":

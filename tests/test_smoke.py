@@ -44,8 +44,16 @@ def test_cli_unknown_command_exits_usage():
 
 
 def test_constants_match_data_readme():
-    # 口径单点：枚举与 data/README.md §四 一致（抽查封闭集合成员数）
-    assert len(REASON_CODES) == 9
+    """口径单点（K2）：constants.REASON_CODES 必须与 data/README.md §4.2 表逐行一致。"""
+    import pathlib
+    import re
+    readme = pathlib.Path(__file__).resolve().parents[1] / "data" / "README.md"
+    text = readme.read_text(encoding="utf-8")
+    section = text.split("### 4.2 reason code 枚举", 1)[1].split("###", 1)[0]
+    documented = re.findall(r"^\|\s*`([A-Za-z_][\w]*)`\s*\|", section, re.M)
+    assert documented, "§4.2 表没解析出条目（判据为空）"
+    assert set(documented) == set(REASON_CODES), (
+        sorted(set(documented) ^ set(REASON_CODES)))
     assert DIALECTS == ("postgres", "snowflake", "bigquery", "tsql", "duckdb")
 
 

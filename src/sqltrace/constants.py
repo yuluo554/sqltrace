@@ -5,9 +5,10 @@
 DIALECTS = ("postgres", "snowflake", "bigquery", "tsql", "duckdb")
 DEFAULT_DIALECT = "postgres"
 
-# §4.2 reason code 枚举（封闭集合，新增需改 data/README.md §四）
+# §4.2 reason code 枚举（封闭集合，新增需改 data/README.md §4.2）
 REASON_CODES = (
     "unknown_wildcard",
+    "unknown_type",
     "positional_union",
     "arity_mismatch",
     "skipped_merge_branch",
@@ -15,8 +16,21 @@ REASON_CODES = (
     "PARSE_ERROR",
     "recursion_limit",
     "cycle_detected",
-    "unknown_type",
+    "dialect_defaulted",
+    "no_source_columns",
+    "wildcard_expanded",
+    "schema_overridden",
+    "unsupported_stored_procedure",
 )
+
+# §4.2 挂载点：既落边（kind=unknown）又落诊断的码
+EDGE_AND_DIAG_CODES = ("unknown_wildcard", "unknown_type")
+
+# §4.2 文件级诊断码：不属于某条语句的血缘留痕（零静默门不认它）
+FILE_LEVEL_CODES = ("dialect_defaulted", "schema_overridden")
+
+# §4.2 正常路径码（非降级）：出现它不表示能力缺失
+INFO_CODES = ("wildcard_expanded", "schema_overridden")
 
 # §4.1 三类边（kind 取值）
 EDGE_KINDS = ("value", "control", "unknown")

@@ -81,21 +81,33 @@
 （sqlglot `lineage()` 的实测输出把 `t.x` 与 `t.k` **并列成 `w` 的同层下游、不带 kind**，
 读者无法分辨哪条是值、哪条是控制 —— 这正是本项目要修正的错误。）
 
-### 4.2 reason code 枚举（封闭集合，新增需改本节）
+### 4.2 reason code 枚举（封闭集合，新增需改本节 + `constants.py` 两处）
 
-| code | 触发条件 | 是否 `approximate` |
-| --- | --- | --- |
-| `unknown_wildcard` | `SELECT *` 且 schema 未知 | 是 |
-| `positional_union` | `UNION` 两侧列别名不一致，按位置合并 | 是 |
-| `arity_mismatch` | `INSERT` 列清单或 `CREATE VIEW v(...)` 显式列名与 SELECT 输出列数不符 | 否 |
-| `skipped_merge_branch` | `MERGE` 中不支持的分支被跳过 | 是 |
-| `UNSUPPORTED_DYNAMIC_SQL` | 遇 `EXEC` / `EXECUTE IMMEDIATE` 等动态 SQL，停止解析该块 | 是 |
-| `PARSE_ERROR` | 语句解析失败 | 否 |
-| `recursion_limit` | CTE / 子查询展开层数超过上限 | 是 |
-| `cycle_detected` | 表依赖图存在环 | 否 |
-| `unknown_type` | 类型推导失败（不影响边，只影响 schema 输出） | 否 |
+**挂载点**列是机械判据的一部分：`边 + 诊断` 表示该码既出现在 `edges[kind=unknown].reason_code` 上也出现在 `diagnostics[]` 上；`诊断` 表示只出现在 `diagnostics[]`（该码对应的构造不产出边）。
 
-**规则**：`unknown` 边必须带 1 个 reason code；降级但仍有边时必须带 1 个 reason code；**没有 reason code 的静默丢弃 = FAIL**。
+| code | 触发条件 | 是否 `approximate` | 挂载点 |
+| --- | --- | --- | --- |
+| `unknown_wildcard` | `SELECT *` 且 schema 未知 | 是 | 边 + 诊断 |
+| `unknown_type` | 列无法在 AST 上回溯到基表（限定名不可解 / 派生 schema 缺列 / 类型推导失败） | 是 | 边 + 诊断 |
+| `positional_union` | `UNION` 两侧列别名不一致，按位置合并 | 是 | 诊断 |
+| `arity_mismatch` | `INSERT` / `MERGE ... INSERT` 列清单或 `CREATE VIEW v(...)` 显式列名与来源列数不符 | 否 | 诊断 |
+| `skipped_merge_branch` | `MERGE` 中该分支无法产出列级边（`DELETE` 分支、分支体形态不支持、INSERT 分支缺目标列清单且 schema 未知） | 是 | 诊断 |
+| `UNSUPPORTED_DYNAMIC_SQL` | 遇 `EXEC` / `EXECUTE IMMEDIATE` 等动态 SQL，停止解析该块 | 是 | 诊断 |
+| `PARSE_ERROR` | 语句解析失败，或触发 §4.7 保护性上限中止 | 否 | 诊断 |
+| `recursion_limit` | CTE / 子查询展开层数超过上限 | 是 | 诊断 |
+| `cycle_detected` | 表依赖图存在环 | 否 | 诊断 |
+| `dialect_defaulted` | 文件无法从目录判定方言，回落 `postgres`（`--dialect` 显式指定时不触发） | 是 | 诊断 |
+| `no_source_columns` | 写语句的目标列在 AST 上**无来源列**（SELECT 列表全为常量/字面量）；边集为空是确定结果，非丢弃 | 否 | 诊断 |
+| `wildcard_expanded` | `SELECT *` 且 schema 已知，**正常路径**展开为具体列（非降级，仅供参考；`plan/01` §二模块③ 表） | 否 | 诊断 |
+| `schema_overridden` | 外部 `--schema` 文件覆盖了从语料推导出的同名表 schema（`plan/01` §二模块①） | 否 | 诊断 |
+| `unsupported_stored_procedure` | 存储过程 / 函数体内含 DML：首期不做体内血缘（D11），整条语句跳过并留痕 | 是 | 诊断 |
+
+**规则**：
+1. `unknown` 边必须带 1 个 reason code，且 `approximate=true`；
+2. 降级但仍有边时必须带 1 个 reason code；
+3. **没有 reason code 的静默丢弃 = FAIL**；
+4. **零静默（机械判据）**：每条**写语句**（`INSERT` / `CREATE TABLE|VIEW ... AS` / `MERGE`）必须落在下列之一——① 产出 ≥1 条边；② 产出 ≥1 条诊断。两者皆无 = FAIL（退出码 `4`，§4.4）。
+5. **边↔诊断对账**：每条 `unknown` 边都必须在 `diagnostics[]` 里有同 `(file, statement_index, reason_code)` 的一项；反向，挂载点为`边 + 诊断`的码若出现诊断，则同语句必须至少有一条该码的 `unknown` 边。
 
 ### 4.3 精确率与召回的判定
 

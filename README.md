@@ -2,7 +2,7 @@
 
 **纯本地 Python CLI**：无数据库连接、无服务端、无网络请求、无图形界面。安装后命令名 `sqltrace`。
 
-> 状态：M2 血缘内核完成（M0 装订骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边）；M3–M6 未开工，里程碑状态见 `plan/00` §六。
+> 状态：**M3 降级策略完成**（M0 装订骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边 + M3 降级策略与零静默门）；M4–M6 未开工，里程碑状态见 `plan/00` §六。
 
 ## 定位（诚实边界）
 
@@ -14,10 +14,12 @@
 
 正确性纪律：`value` 边精确率 100%（人工标注语料范围内，宁可 `unknown` 不得假边）；每档降级带机器可读 reason code（零静默）；同输入两次运行 JSON 字节级一致。口径单点定义在 `data/README.md` §四。
 
+**零静默是可执行的门，不是口号**：`sqltrace lineage` 对每条写语句断言"有边或有诊断"，任何静默丢弃都会让它以退出码 `4` 失败。
+
 ## 命令树（骨架就绪，M1–M5 落地）
 
 ```bash
-sqltrace lineage <dir> --json        # 列级血缘（M2/M3）
+sqltrace lineage <dir> --json        # 列级血缘（M2/M3 已落地）
 sqltrace census  <dir> --md          # 写入者普查报表（M4）
 sqltrace diff    <dir> --base <ref>  # lineage diff 闸门（M5）
 sqltrace impact  raw.cust.nm <dir>   # 反向影响，穿透中间表（M5）

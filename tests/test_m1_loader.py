@@ -43,7 +43,7 @@ def test_dialect_from_directory_default_with_diagnostic(tmp_path):
     dia = {f["path"]: f["dialect"] for f in corpus.files}
     assert dia["postgres/a.sql"] == "postgres"
     assert dia["unsorted/b.sql"] == "postgres"  # §4.5 默认
-    assert any("dialect_defaulted" in d.message for d in corpus.diagnostics)
+    assert any(d.reason_code == "dialect_defaulted" for d in corpus.diagnostics)
 
 
 def test_schema_derivation_ctas_and_view(tmp_path):

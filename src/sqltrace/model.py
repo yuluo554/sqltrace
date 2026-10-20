@@ -71,3 +71,5 @@ class Corpus:
     statements: list = field(default_factory=list)  # Statement[]（拓扑序）
     schemas: dict = field(default_factory=dict)  # table -> {column: type_or_unknown}
     diagnostics: list = field(default_factory=list)  # Diagnostic[]
+    # M3：build_edges 填写的"应产出血缘的写语句" id 列表（§4.2 规则 4 零静默门输入）
+    write_ids: list = field(default_factory=list)

@@ -12,6 +12,7 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError
 
+from . import fallback
 from .constants import MAX_AST_NODES, RECURSION_LIMIT
 from .model import Corpus, Diagnostic, Edge
 
@@ -66,7 +67,11 @@ class _Resolver:
         self.corpus = corpus
         self.statement = statement
         self.diags: list[Diagnostic] = []
+        self.edges: list[Edge] = []
         self._outputs_cache: dict = {}
+        self._truncated: set = set()  # 触发 recursion_limit 的 select 节点
+        self._in_progress: set = set()  # 正在展开的 select（自引用检测）
+        self.output_count = 0  # 本语句解析出的输出列数（no_source_columns 诊断用）
 
     # ---- 诊断 ----
     def _diag(self, code: str, message: str, approximate: bool = False) -> None:
@@ -77,6 +82,31 @@ class _Resolver:
             message=message,
             approximate=approximate,
         ))
+
+    # ---- 边 ----
+    def add_edge(self, target_table: str, target_column: str, sources) -> int:
+        """把一组来源落到 (target_table, target_column)；返回落的边数（MERGE 分支用）。"""
+        n = 0
+        for s in sources:
+            if s.table is None and s.kind != "unknown":
+                s.kind = "unknown"
+                s.reason = s.reason or "unknown_type"
+            self.edges.append(Edge(
+                target_table=target_table,
+                target_column=target_column,
+                kind=s.kind,
+                source_table=s.table,
+                source_column=s.column,
+                expr=s.expr,
+                join_path=s.join_path,
+                aggregation=s.aggregation,
+                window=s.window,
+                statement_id=self.statement.statement_id,
+                reason_code=s.reason,
+                approximate=s.kind == "unknown",
+            ))
+            n += 1
+        return n
 
     # ---- 关系收集 ----
     def _relations(self, select, scope: dict) -> dict:
@@ -128,18 +158,24 @@ class _Resolver:
         """返回 [{'name': str|None, 'sources': [_Source]}]（顺序 = 输出列顺序）。"""
         key = id(select)
         if key in self._outputs_cache:
+            if key in self._in_progress:
+                # 自引用 CTE / 子查询：展开不收敛，按 §4.2 recursion_limit 降级（不静默）
+                self._truncate(key, f"self-referencing CTE/subquery at `{_clean_sql(select)[:60]}`")
             return self._outputs_cache[key]
         if depth > RECURSION_LIMIT:
-            self._diag("recursion_limit", f"CTE/subquery expansion depth > {RECURSION_LIMIT}", True)
+            self._truncate(key, f"CTE/subquery expansion depth > {RECURSION_LIMIT}")
             return []
         outputs: list = []
         self._outputs_cache[key] = outputs  # 防环（自引用 CTE）
+        self._in_progress.add(key)
 
         if isinstance(select, (exp.Union, exp.Intersect, exp.Except)):
             self._resolve_setop(select, scope, depth, outputs)
+            self._in_progress.discard(key)
             return outputs
 
         if not isinstance(select, exp.Select):
+            self._in_progress.discard(key)
             return outputs
 
         local_scope = self._cte_scope(select, scope)
@@ -153,7 +189,15 @@ class _Resolver:
         if controls:
             for out in outputs:
                 out["sources"].extend(controls)
+        self._in_progress.discard(key)
         return outputs
+
+    def _truncate(self, key, message: str) -> None:
+        """深度/自引用截断只留一条诊断（同一节点重复访问不重复计数）。"""
+        if key in self._truncated:
+            return
+        self._truncated.add(key)
+        self._diag("recursion_limit", message, True)
 
     def _resolve_setop(self, node, scope: dict, depth: int, outputs: list, branch_index: int = 0) -> None:
         """UNION/INTERSECT/EXCEPT：逐分支解析，按位置对齐；别名不一致记 positional_union。"""
@@ -239,6 +283,11 @@ class _Resolver:
             if kind == "table":
                 schema = self.corpus.schemas.get(node)
                 if schema:
+                    # 正常路径（plan/01 §二模块③）：schema 已知 → 展开，并留一条 info 诊断
+                    self._diag(
+                        "wildcard_expanded",
+                        f"SELECT * expanded to {len(schema)} column(s) of `{node}`",
+                    )
                     for col in schema:
                         outs.append({
                             "name": col,
@@ -508,6 +557,22 @@ def _target_of(root, corpus: Corpus):
 
 # ---------------------------------------------------------------- 主入口
 
+def _root_cte_scope(root) -> dict:
+    """`WITH c AS (...) INSERT INTO t ... SELECT ... FROM c`：CTE 挂在 DML 根节点上而非 SELECT 上。
+
+    不把它带进初始 scope 会让 CTE 名被当成基表 → 假边（D7）。M3 修。
+    """
+    scope: dict = {}
+    with_ = root.args.get("with_")
+    if with_ is None:
+        with_ = root.args.get("with")
+    if with_ is not None:
+        for cte in with_.expressions:
+            if isinstance(cte, exp.CTE) and cte.alias:
+                scope[cte.alias] = cte.this
+    return scope
+
+
 def _register_insert_schema(corpus: Corpus, root, table: str) -> None:
     """INSERT 目标无 schema 时按列清单/SELECT 输出名补全（类型 unknown，不编造）。
 
@@ -535,10 +600,28 @@ def _register_insert_schema(corpus: Corpus, root, table: str) -> None:
         corpus.schemas[table] = {c: "unknown" for c in names}
 
 
+def _flag_no_source(resolver, write_ids: list, stmt) -> None:
+    """写语句零边时给出确定结论 `no_source_columns`（§4.2）：边集为空是**结果**，不是丢弃。
+
+    只在该语句还没有任何语句级诊断时补——已有诊断的语句（PARSE_ERROR / arity_mismatch /
+    skipped_merge_branch …）本身就是留痕，不重复记。
+    """
+    if resolver.edges:
+        return
+    if any(d.reason_code != "dialect_defaulted" for d in resolver.diags):
+        return
+    resolver._diag(
+        "no_source_columns",
+        f"write statement resolved {resolver.output_count} output column(s) but none has a "
+        "source column in the AST (constant/literal only); empty edge set is the determined result",
+    )
+
+
 def build_edges(corpus: Corpus):
     """sqlglot AST + scope walker → (edges, diagnostics)。"""
     edges: list[Edge] = []
     diags: list[Diagnostic] = []
+    write_ids: list[str] = []  # 应产出血缘的写语句（§4.2 规则 4 零静默门的输入）
 
     for stmt in corpus.statements:
         dialect = _DIALECT_MAP.get(stmt.dialect, "postgres")
@@ -569,18 +652,43 @@ def build_edges(corpus: Corpus):
                                     False))
             continue
 
-        target = _target_of(root, corpus)
-        if target is None:
+        # ---- MERGE：核心里没有 _target_of 形态，走 M3 降级策略（逐分支）----
+        if isinstance(root, exp.Merge):
+            write_ids.append(stmt.statement_id)
+            resolver = _Resolver(corpus, stmt)
+            fallback.resolve_merge(resolver, root)
+            resolver.output_count = len({e.target_column for e in resolver.edges})
+            edges.extend(resolver.edges)
+            diags.extend(resolver.diags)
+            _flag_no_source(resolver, write_ids, stmt)
             continue
+
+        target = _target_of(root, corpus)
+
+        # ---- 存储过程 / 函数体：首期不做体内血缘（D11 / plan/01 §六），整条跳过但必须留痕 ----
+        if target is None and isinstance(root, exp.Create) \
+                and (root.args.get("kind") or "").upper() in ("PROCEDURE", "FUNCTION"):
+            diags.append(Diagnostic(
+                stmt.file, stmt.index, "unsupported_stored_procedure",
+                f"{(root.args.get('kind') or '').upper()} body lineage not supported (D11); "
+                "statement skipped",
+                True,
+            ))
+            continue
+
+        if target is None:
+            continue  # 纯 SELECT / 纯 DDL：不是血缘语句
         table, explicit_cols, select = target
         if not table or select is None:
             continue
+        write_ids.append(stmt.statement_id)
 
         if isinstance(root, exp.Insert):
             _register_insert_schema(corpus, root, table)
 
         resolver = _Resolver(corpus, stmt)
-        outputs = resolver.resolve_select(select, {}, 0)
+        outputs = resolver.resolve_select(select, _root_cte_scope(root), 0)
+        resolver.output_count = len(outputs)
 
         # 目标列：显式清单 > schema 顺序 > SELECT 输出名
         if explicit_cols:
@@ -595,35 +703,20 @@ def build_edges(corpus: Corpus):
 
         if len(target_cols) != len(outputs):
             # 列数不符：不猜位置，记 arity_mismatch（§4.2），边不产出
-            resolver.diags.append(Diagnostic(
-                stmt.file, stmt.index, "arity_mismatch",
-                f"target columns {len(target_cols)} != select outputs {len(outputs)}",
-                False,
-            ))
+            resolver._diag("arity_mismatch",
+                           f"target columns {len(target_cols)} != select outputs {len(outputs)}")
             diags.extend(resolver.diags)
             continue
 
         for tcol, out in zip(target_cols, outputs):
-            for s in out["sources"]:
-                if s.table is None and s.kind != "unknown":
-                    s.kind = "unknown"
-                    s.reason = s.reason or "unknown_type"
-                edges.append(Edge(
-                    target_table=table,
-                    target_column=tcol,
-                    kind=s.kind,
-                    source_table=s.table,
-                    source_column=s.column,
-                    expr=s.expr,
-                    join_path=s.join_path,
-                    aggregation=s.aggregation,
-                    window=s.window,
-                    statement_id=stmt.statement_id,
-                    reason_code=s.reason,
-                    approximate=s.kind == "unknown" or False,
-                ))
+            resolver.add_edge(table, tcol, out["sources"])
 
+        _flag_no_source(resolver, write_ids, stmt)
+        edges.extend(resolver.edges)
         diags.extend(resolver.diags)
+
+    # §4.2 规则 5：unknown 边必有同键诊断（补出来的诊断并入后统一排序）
+    diags.extend(fallback.reconcile_unknown_edges(edges, diags))
 
     # 去重 + 排序（§4.6；同语句内重复来源只留一条）
     seen = set()
@@ -636,4 +729,5 @@ def build_edges(corpus: Corpus):
         uniq.append(e)
     uniq.sort(key=lambda e: (e.sort_key(), e.statement_id))
     diags.sort(key=lambda d: d.sort_key())
+    corpus.write_ids = list(write_ids)
     return uniq, diags

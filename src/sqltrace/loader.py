@@ -102,7 +102,10 @@ class _Gitignore:
         return verdict
 
 
-def _dialect_for(rel: str) -> tuple[str, bool]:
+def _dialect_for(rel: str, override: str | None = None) -> tuple[str, bool]:
+    """方言判定（§4.5）：`--dialect` 显式指定 > 一级目录名 > 默认 postgres（记诊断）。"""
+    if override:
+        return override, False
     top = rel.split("/", 1)[0]
     if top in DIALECTS:
         return top, False
@@ -215,8 +218,9 @@ def _writes_target(stmt: str) -> str | None:
     return None
 
 
-def load_corpus(root: Path, schema_file: Path | None = None) -> Corpus:
-    """装载语料目录为 Corpus（M1 最小闭环）。"""
+def load_corpus(root: Path, schema_file: Path | None = None,
+                dialect: str | None = None) -> Corpus:
+    """装载语料目录为 Corpus（M1 最小闭环）。`dialect` = CLI `--dialect` 覆盖（§4.5）。"""
     corpus = Corpus()
     root = Path(root)
     ignore = _Gitignore(root)
@@ -231,14 +235,15 @@ def load_corpus(root: Path, schema_file: Path | None = None) -> Corpus:
         if why:
             corpus.ignored.append({"path": rel, "reason": why})
             continue
-        dialect, defaulted = _dialect_for(rel)
+        file_dialect, defaulted = _dialect_for(rel, dialect)
         if defaulted:
             corpus.diagnostics.append(Diagnostic(
                 file=rel, statement_index=0,
-                reason_code="PARSE_ERROR",  # 占位：dialect_defaulted 专用码在 M3 接线
-                message=f"dialect defaulted to {DEFAULT_DIALECT} (dialect_defaulted)",
+                reason_code="dialect_defaulted",  # §4.2 专用码（M3 接线）
+                message=f"dialect defaulted to {DEFAULT_DIALECT}",
+                approximate=True,
             ))
-        corpus.files.append({"path": rel, "sha256": _sha256(p), "dialect": dialect})
+        corpus.files.append({"path": rel, "sha256": _sha256(p), "dialect": file_dialect})
 
         text = p.read_text(encoding="utf-8", errors="replace")
         raw_parts = _split_statements(text)
@@ -250,7 +255,7 @@ def load_corpus(root: Path, schema_file: Path | None = None) -> Corpus:
             ))
             continue
         for idx, stmt in enumerate(raw_parts):
-            stmts.append(Statement(file=rel, index=idx, sql=stmt, dialect=dialect))
+            stmts.append(Statement(file=rel, index=idx, sql=stmt, dialect=file_dialect))
 
     # ---- schema 推导 + 语句读写依赖 ----
     writes: dict[int, str] = {}
@@ -324,7 +329,15 @@ def load_corpus(root: Path, schema_file: Path | None = None) -> Corpus:
             ddl = _parse_ddl(stmt)
             if ddl:
                 table, cols = ddl
+                had = table in corpus.schemas
                 corpus.schemas[table] = {c: "unknown" for c in cols}
+                # plan/01 模块①：覆盖必须留痕（不静默）
+                corpus.diagnostics.append(Diagnostic(
+                    file=Path(schema_file).as_posix(), statement_index=0,
+                    reason_code="schema_overridden",
+                    message=(f"external schema overrides `{table}` "
+                             f"({'derived' if had else 'new'}, {len(cols)} column(s))"),
+                ))
 
     # 诊断排序（§4.6）
     corpus.diagnostics.sort(key=lambda d: d.sort_key())
