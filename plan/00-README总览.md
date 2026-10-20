@@ -7,7 +7,7 @@
 - **项目**：SQLTrace——SQL 值/控制双通道血缘 + 写入者普查 + diff 闸门（**纯本地 Python CLI**）
 - **性质**：不参赛项目题 · 发布 GitHub **公开仓库** · 署名 `yuluo554`
 - **版本**：v1（2026-10-20 定稿；竞品与开源检索基准日 **2026-10-20**）；M0 骨架同日落地
-- **当前状态**：**M5 diff 闸门与输出完成**（M0 骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边 + M3 降级策略与零静默门 + M4 写入者普查五节 + M5 diff/impact/golden）。M6 发布未开工，状态列见 §六。
+- **当前状态**：**M6 发布完成**（M0 骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边 + M3 降级策略与零静默门 + M4 写入者普查五节 + M5 diff/impact/golden + M6 发布三件套）。状态列见 §六。
 - **一句话定位**：离线列级血缘不空（FlowScope 105★ 已占），但没人把**值边与控制边分开**、没人做**写入者普查**、没人做**纯 SQL 目录的 git diff 闸门**——本工具只押这三件。
 - **交付形态**：**唯一形态 = 纯本地 Python CLI**。无数据库连接、无元数据平台、无服务端、无网络请求、无图形界面。
 
@@ -27,7 +27,7 @@
 | `data/corpus/**/*.sql` + `data/labels/*.json` | 40–60 个 `.sql` 人工标注语料 | ✅ M1 |
 | `data/golden/g1`–`g5` | 五条 golden 回归（输入 + 期望输出 + 说明） | ✅ 输入侧 M1 冻结；期望侧 M5 冻结；`sqltrace golden` 五条全绿 |
 | `docs/census-sample.md`、`docs/diff-sample.json` | 真实运行输出样例 | ✅ `census-sample.md` M4；`diff-sample.json` M5 |
-| `plan/RELEASE-M6.md` | 发布留档（**tag 前入库**；tag 后事实分栏追加） | ⬜ M6 |
+| `plan/RELEASE-M6.md` | 发布留档（**tag 前入库**；tag 后事实分栏追加） | ✅ M6 |
 | `plan/HANDOFF-M<k>.md` | 第 k 个里程碑收尾交接单 | ✅ M1 起（M0 豁免） |
 
 ## 二、决策记录
@@ -88,7 +88,7 @@
 | 零网络 / 无数据库连接 | 本题设计（D8） | 全 CLI | 静态扫描无网络调用；无 DB 驱动依赖 | ✅ M5 |
 | 同输入两次运行字节级一致 | 本题设计（D9） | 全部 JSON 输出 | 两次运行 `sha256` 相同；跨平台一致 | ✅ M5（Windows 本机双跑；Linux 侧待 CI，见 `plan/05 §四`） |
 | 五条 golden 回归 | 本题设计 | `data/golden/g1`–`g5` | `sqltrace golden` 一条命令全绿 | ✅ M5 |
-| 发布三件套 | 本题设计（D13） | 仓库发布流程 | git tag + GitHub Release（**附产物** `release/*.whl` + `SHA256SUMS`）+ `plan/RELEASE-M6.md` | ⬜ M6 |
+| 发布三件套 | 本题设计（D13） | 仓库发布流程 | git tag + GitHub Release（**附产物** `release/*.whl` + `SHA256SUMS`）+ `plan/RELEASE-M6.md` | ✅ M6 |
 
 ## 四、招牌动词表（能力名词 → 交付态命令 → 断言基准）
 
@@ -131,7 +131,7 @@
 | **M3 降级策略** | 全部策略档 + reason code 枚举 + 诊断 | `grep -c unknown` 与未解析计数一致；每个降级构造都有对应 reason code；**零静默**；golden g2 / g3 绿 | ✅ |
 | **M4 写入者普查** | writers / readers / orphan / multi_writer / write_only + Markdown 报表 | 合成语料植入项全命中、单写入者表零误报；golden g4 绿；`docs/census-sample.md` 为真实输出 | ✅ |
 | **M5 diff 闸门与输出** | `diff --base`（git + 双目录）、`impact`、退出码、JSON 稳定排序 + Markdown 评论 | 同输入两次运行 JSON 字节级一致、跨平台一致；`impact` 穿透两层；golden g5 绿；五条 golden 一条命令全绿 | ✅ |
-| **M6 发布** | 发布 GitHub **公开仓库** | **M6 DoD = 三件套：①git tag ②GitHub Release（附产物 `release/*.whl` + `SHA256SUMS`，本地留副本）③发布留档 `plan/RELEASE-M6.md`（tag 之前写好并进 tag 树）**；发布后实测值在留档里分栏追加 | ⬜ |
+| **M6 发布** | 发布 GitHub **公开仓库** | **M6 DoD = 三件套：①git tag ②GitHub Release（附产物 `release/*.whl` + `SHA256SUMS`，本地留副本）③发布留档 `plan/RELEASE-M6.md`（tag 之前写好并进 tag 树）**；发布后实测值在留档里分栏追加 | ✅ |
 
 > 里程碑表的 DoD 列**只能加不能减**；任何裁剪必须在决策记录新增一行说明理由。
 

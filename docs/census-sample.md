@@ -1,4 +1,4 @@
-# 写入者普查 · sqltrace 0.1.0.dev0
+# 写入者普查 · sqltrace 0.1.0
 
 > 事实报表，不含风险分/冲突概率。口径：`data/README.md` §4.8。
 

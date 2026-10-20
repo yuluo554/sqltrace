@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sqltrace"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "SQL 值/控制双通道血缘 + 写入者普查 + diff 闸门（纯本地 Python CLI，零网络）"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -22,6 +22,11 @@ dependencies = ["sqlglot>=30.20,<31"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/yuluo554/sqltrace"
+Repository = "https://github.com/yuluo554/sqltrace"
+Issues = "https://github.com/yuluo554/sqltrace/issues"
 
 [project.scripts]
 sqltrace = "sqltrace.cli:main"

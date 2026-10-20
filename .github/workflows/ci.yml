@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  layout:
+    name: 布局门（方法论装订）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 布局门
+        run: python -X utf8 tools/check_sprint_layout.py
+
+  test:
+    name: 全量测试 + 五条 golden（3.12 通道）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 安装
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: 全量测试
+        run: python -m pytest tests -q
+      - name: 五条 golden 回归
+        run: sqltrace golden data/golden
+
+  py38-syntax:
+    name: 3.8 语法兼容（仅 ast，不装 sqlglot）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+      - name: ast.parse(feature_version=(3,8))
+        run: |
+          python -X utf8 -c "import ast,pathlib; [ast.parse(p.read_text(encoding='utf-8'),feature_version=(3,8)) for d in ('src/sqltrace','tests','tools') for p in pathlib.Path(d).glob('*.py')]; print('3.8 syntax ok')"
