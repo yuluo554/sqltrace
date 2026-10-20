@@ -30,8 +30,10 @@ cd release && py -3.12 -c "import hashlib,pathlib; [print(hashlib.sha256(p.read_
 
 | 产物 | 字节 | SHA256 |
 | --- | --- | --- |
-| `sqltrace-0.1.0-py3-none-any.whl` | 42,279 | `1c9b88b8954656b1127260a95b3d63b5d71bcf7b0ee0337014b3c472291fbd6a` |
-| `sqltrace-0.1.0.tar.gz` | 56,761 | `29a94d3076450a866c0f082f236a1406efaca6d48ca283804d6dfb496fd952ee` |
+| `sqltrace-0.1.0-py3-none-any.whl` | 42,267 | `908a6b6189a9edd23cb7f80fa0d7eba70cbb9533490ef88104c89480c2de21ef` |
+| `sqltrace-0.1.0.tar.gz` | 56,717 | `06f9c00c75cc2dc607e4728fa6d8b0dc4f1b5ad66ed87fcb05b38758cf92273c` |
+
+> 构建纪律：产物必须从**最终交付树**构建（含 README / LICENSE / `pyproject.toml` 定稿后）。本次首版产物在 README 状态行改写**之前**构建，sdist 内的 README 与 tag 树不一致，已删除重建；上表为重建后的值。
 
 `release/SHA256SUMS` 与上表同源（`<hash>  <filename>` 两空格分隔，`sha256sum -c` 可校验）。
 

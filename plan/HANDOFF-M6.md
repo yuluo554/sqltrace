@@ -12,7 +12,7 @@
   - `sqltrace golden data/golden` → **5/5**，退出码 `0`（干净 venv 里跑，不是 `-e .`）。
   - 干净环境双通道：wheel 与 sdist **各建全新 venv** 安装成功；README 五条命令逐条实跑（退出码 `0/0/1/0/0`，`1` 是 g5 diff 的破坏性变更语义）。
   - 双跑确定性：`diff --json`、`census --md` 两次输出相同，且与 `docs/diff-sample.json` / `docs/census-sample.md` 逐字节一致。
-  - 产物 SHA256：wheel `1c9b88b8…fd6a`（42,279 B）、sdist `29a94d30…52ee`（56,761 B）。
+  - 产物 SHA256：wheel `908a6b61…21ef`（42,267 B）、sdist `06f9c00c…273c`（56,717 B）。产物从**最终交付树**重建（首版构建早于 README 状态行改写，sdist 内 README 与 tag 树不一致，已删重建）。
   - 3.8 语法兼容：`ast.parse(feature_version=(3,8))` 对 `src/sqltrace` + `tests` + `tools` 全绿。
 - 证据（tag 后）：见 §七「发布事实」与 `plan/RELEASE-M6.md` §二。
 
