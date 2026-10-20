@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """CLI 唯一入口：sqltrace 命令树（plan/01 纪律 5：单一入口，库 API 不作验收路径）。
 
-M1：lineage --json 输出装载器文件清单（最小闭环）；其余子命令仍为占位（M2–M5 落地）。
+M1 装载 + M2 血缘内核：lineage --json 输出装载清单与血缘边；其余子命令占位（M3–M5 落地）。
 退出码口径 data/README.md §4.4。
 """
 from __future__ import annotations
@@ -12,6 +12,7 @@ from pathlib import Path
 
 from . import __version__
 from .constants import DIALECTS, EXIT_OK, EXIT_USAGE
+from .core import build_edges
 from .loader import load_corpus
 from .output import dumps_json, ensure_deterministic_stdio
 
@@ -71,6 +72,7 @@ def main(argv: list | None = None) -> int:
         corpus = _load_or_exit(args)
         if corpus is None:
             return EXIT_USAGE
+        edges, edge_diags = build_edges(corpus)
         if args.json:
             payload = {
                 "version": __version__,
@@ -90,14 +92,33 @@ def main(argv: list | None = None) -> int:
                     }
                     for d in corpus.diagnostics
                 ],
-                "edges": [],  # M2 落地
+                "edges": [
+                    {
+                        "target": f"{e.target_table}.{e.target_column}",
+                        "source": (f"{e.source_table}.{e.source_column}"
+                                   if e.source_table else None),
+                        "kind": e.kind,
+                        "expr": e.expr,
+                        "statement_id": e.statement_id,
+                        "aggregation": e.aggregation,
+                        "window": e.window,
+                        "join_path": list(e.join_path),
+                        "reason_code": e.reason_code,
+                        "approximate": e.approximate,
+                    }
+                    for e in edges
+                ],
             }
             print(dumps_json(payload))
             return EXIT_OK
+        by_kind = {"value": 0, "control": 0, "unknown": 0}
+        for e in edges:
+            by_kind[e.kind] = by_kind.get(e.kind, 0) + 1
         print(
             f"sqltrace {__version__}: 装载 {len(corpus.files)} 个文件 / "
             f"{len(corpus.statements)} 条语句 / {len(corpus.schemas)} 张表 schema / "
-            f"{len(corpus.diagnostics)} 条诊断（血缘边 M2 落地）。"
+            f"血缘边 {len(edges)} 条（value {by_kind['value']} / control {by_kind['control']} / "
+            f"unknown {by_kind['unknown']}）/ {len(corpus.diagnostics) + len(edge_diags)} 条诊断。"
         )
         return EXIT_OK
 

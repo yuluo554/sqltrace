@@ -7,7 +7,7 @@
 - **项目**：SQLTrace——SQL 值/控制双通道血缘 + 写入者普查 + diff 闸门（**纯本地 Python CLI**）
 - **性质**：不参赛项目题 · 发布 GitHub **公开仓库** · 署名 `yuluo554`
 - **版本**：v1（2026-10-20 定稿；竞品与开源检索基准日 **2026-10-20**）；M0 骨架同日落地
-- **当前状态**：**M1 数据先行完成**（M0 骨架 + M1 语料/标注/golden 输入侧/装载器闭环）。M2–M6 未开工，状态列见 §六。
+- **当前状态**：**M2 血缘内核完成**（M0 骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边）。M3–M6 未开工，状态列见 §六。
 - **一句话定位**：离线列级血缘不空（FlowScope 105★ 已占），但没人把**值边与控制边分开**、没人做**写入者普查**、没人做**纯 SQL 目录的 git diff 闸门**——本工具只押这三件。
 - **交付形态**：**唯一形态 = 纯本地 Python CLI**。无数据库连接、无元数据平台、无服务端、无网络请求、无图形界面。
 
@@ -71,9 +71,9 @@
 
 | 承诺项 | 素材来源 | 交付物内可达性 | 核验方式 | 状态 |
 | --- | --- | --- | --- | --- |
-| 值/控制双通道分型 | 本题设计；口径在 `data/README.md` §四 | `src/sqltrace/core/` 的边生成 | 人工标注语料上 `value` 边精确率 100%；窗口用例 `w<-x`(value) + `w<-k`(control) | ⬜ M2 |
-| sqlglot 分区键误判被修正 | sqlglot 30.23.0 实测：`SUM(x) OVER (PARTITION BY k)` → `w` 的下游是 `t.x` 与 `t.k`（同层、无 kind 标注） | 同上 | 专项用例（golden g1） | ⬜ M2 |
-| sqllineage #276 谓词血缘（四年未做）被覆盖 | issue #276（open 2022-07-20） | `control` 边 | 标注语料中 WHERE / ON / USING / HAVING / QUALIFY 均有 control 边 | ⬜ M2 |
+| 值/控制双通道分型 | 本题设计；口径在 `data/README.md` §四 | `src/sqltrace/core/` 的边生成 | 人工标注语料上 `value` 边精确率 100%；窗口用例 `w<-x`(value) + `w<-k`(control) | ✅ M2 |
+| sqlglot 分区键误判被修正 | sqlglot 30.23.0 实测：`SUM(x) OVER (PARTITION BY k)` → `w` 的下游是 `t.x` 与 `t.k`（同层、无 kind 标注） | 同上 | 专项用例（golden g1） | ✅ M2 |
+| sqllineage #276 谓词血缘（四年未做）被覆盖 | issue #276（open 2022-07-20） | `control` 边 | 标注语料中 WHERE / ON / USING / HAVING / QUALIFY 均有 control 边 | ✅ M2 |
 | 降级 reason code 枚举 + 零静默 | 本题设计；枚举在 `data/README.md` §四 | `src/sqltrace/fallback/` | `grep -c unknown` 与诊断未解析计数一致；无"解析了但无输出无诊断"的语句 | ⬜ M3 |
 | `SELECT *` 未知 schema 不猜列名 | 本题设计（D12）；反例 OpenLineage #3809 | `unknown_wildcard` + `approximate=true` | golden g2：输出中不含任何猜测列名 | ⬜ M3 |
 | `INSERT` 列清单位置映射 | 本题设计；反例 sqlglot 实测 `Cannot find column 'c1'` | `arity_mismatch` 诊断 | golden g3 | ⬜ M3 |
@@ -127,7 +127,7 @@
 | --- | --- | --- | --- |
 | **M0 装订与骨架** | 方法论装订三件 + plan/02–06 + 可运行骨架（src/sqltrace 命令树占位 + pyproject + tests 冒烟） | 布局门绿且变异验证通过；`pip install -e .` 后 `sqltrace --help` 可跑；骨架冒烟测试绿 | ✅ |
 | **M1 数据先行** | 40–60 个 `.sql` 人工标注语料（5 方言）+ 标注 JSON + 五条 golden 的**输入侧**定稿；语料不变量自检（无真实表名、无真实人名、无公司名） | 语料文件数落进区间；每条 golden 有输入与一句话说明；标注 JSON 覆盖全部 value 边；`sqltrace` 可遍历语料并输出文件清单（装载器最小闭环） | ✅ |
-| **M2 血缘内核** | sqlglot AST + 自研 scope walker；三类边 + 元数据（expr / join_path / aggregation / window） | `value` 边精确率 100%；召回 ≥85%；窗口用例 `w<-x`(value) + `w<-k`(control)，**不得**出现 `w<-k` 的 value 边；golden g1 绿 | ⬜ |
+| **M2 血缘内核** | sqlglot AST + 自研 scope walker；三类边 + 元数据（expr / join_path / aggregation / window） | `value` 边精确率 100%；召回 ≥85%；窗口用例 `w<-x`(value) + `w<-k`(control)，**不得**出现 `w<-k` 的 value 边；golden g1 绿 | ✅ |
 | **M3 降级策略** | 全部策略档 + reason code 枚举 + 诊断 | `grep -c unknown` 与未解析计数一致；每个降级构造都有对应 reason code；**零静默**；golden g2 / g3 绿 | ⬜ |
 | **M4 写入者普查** | writers / readers / orphan / multi_writer / write_only + Markdown 报表 | 合成语料植入项全命中、单写入者表零误报；golden g4 绿；`docs/census-sample.md` 为真实输出 | ⬜ |
 | **M5 diff 闸门与输出** | `diff --base`（git + 双目录）、`impact`、退出码、JSON 稳定排序 + Markdown 评论 | 同输入两次运行 JSON 字节级一致、跨平台一致；`impact` 穿透两层；golden g5 绿；五条 golden 一条命令全绿 | ⬜ |
