@@ -27,7 +27,8 @@
 | `data/corpus/**/*.sql` + `data/labels/*.json` | 40–60 个 `.sql` 人工标注语料 | ✅ M1 |
 | `data/golden/g1`–`g5` | 五条 golden 回归（输入 + 期望输出 + 说明） | ✅ 输入侧 M1 冻结；期望侧 M5 冻结；`sqltrace golden` 五条全绿 |
 | `docs/census-sample.md`、`docs/diff-sample.json` | 真实运行输出样例 | ✅ `census-sample.md` M4；`diff-sample.json` M5 |
-| `plan/RELEASE-M6.md` | 发布留档（**tag 前入库**；tag 后事实分栏追加） | ✅ M6 |
+| `plan/RELEASE-M6.md` | 发布留档（**tag 前入库**；tag 后事实分栏追加） | ✅ M6（v0.1.0，冻结） |
+| `plan/RELEASE-M6.1.md` | v0.1.1 发布留档（同上两栏结构；记录 D1/D2/D3/D4/D5/D6/D10/D11 修复） | ✅ v0.1.1 |
 | `plan/HANDOFF-M<k>.md` | 第 k 个里程碑收尾交接单 | ✅ M1 起（M0 豁免） |
 
 ## 二、决策记录
