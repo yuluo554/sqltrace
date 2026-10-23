@@ -229,8 +229,11 @@ def test_sha_normalized_across_line_endings(tmp_path):
     lf_dir.mkdir()
     crlf_dir.mkdir()
     lf = "CREATE TABLE r (x int);\nCREATE TABLE m AS SELECT x FROM r;\n"
-    (lf_dir / "a.sql").write_text(lf, encoding="utf-8", newline="\n")
-    (crlf_dir / "a.sql").write_text(lf, encoding="utf-8", newline="\r\n")
+    # `Path.write_text(newline=...)` 是 3.10+ 才有的参数；requires-python 是 >=3.9，
+    # 所以必须用 `open(..., newline=...)`（CI 的 py39-min 腿实测抓到过 TypeError）。
+    for target, nl in ((lf_dir / "a.sql", "\n"), (crlf_dir / "a.sql", "\r\n")):
+        with open(target, "w", encoding="utf-8", newline=nl) as fh:
+            fh.write(lf)
     assert (crlf_dir / "a.sql").read_bytes() != (lf_dir / "a.sql").read_bytes()  # 判据非空
 
     a = load_corpus(lf_dir)
