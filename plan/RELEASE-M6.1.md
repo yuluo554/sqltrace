@@ -124,17 +124,31 @@ wheel 内容 **16 条目**（10 模块 + `dist-info`），`METADATA` 含 `Requir
 
 | 项 | 值 |
 | --- | --- |
-| tag 名 | _待追加_ |
-| tag 对象 SHA | _待追加_ |
-| tag 指向的 commit | _待追加_ |
-| Release URL | _待追加_ |
-| 上传产物 | _待追加_ |
-| 下载后复核 SHA256 | _待追加_ |
-| CI run id（tag 树） | _待追加_ |
+| tag 名 | `v0.1.1`（annotated，`git cat-file -t` = `tag`） |
+| tag 对象 SHA | `dec1ed1bae3be74a935c618c6b7c8e138f68e03b` |
+| tag 指向的 commit | `b29e758e2f294e92209afa5dced5ba1a14eb98b3` |
+| 远端仓库 | `https://github.com/yuluo554/sqltrace`（public） |
+| Release URL | `https://github.com/yuluo554/sqltrace/releases/tag/v0.1.1` |
+| 上传产物 | `sqltrace-0.1.1-py3-none-any.whl`（45,094 B）、`sqltrace-0.1.1.tar.gz`（62,487 B）、`SHA256SUMS`（186 B），三件均 `uploaded`；Release 为 `draft=false` / `prerelease=false` / `latest` |
+| GitHub asset digest | wheel `sha256:3e1730c87e6cc9d5186713883c38caf41c7c95744135d8d4181b7509336ccd0e`；sdist `sha256:d307dcce85f245bc1a8b74fef5a5d9835254b52d67adcd5d0f28c856b24b942c`；`SHA256SUMS` `sha256:9b8eccffb9a72e3086f16c008eae22dc83b60247ef39302e64bbfb705d6f7f87` |
+| **三方 sha256 对撞** | 本地构建值 / `SHA256SUMS` 内容 / GitHub asset digest **逐字符相同**；匿名 `sha256sum -c SHA256SUMS` → 两件 `OK`，rc=0 |
+| 匿名可达性（**不带 token**） | `curl https://api.github.com/repos/yuluo554/sqltrace/releases/latest` → `tag_name = v0.1.1`；三个附件 `curl -L -o` 均 `200`（首次出现过一次 `000` 瞬时失败，重试即 `200`——github.com:443 间歇不稳是本批已知网络坑） |
+| 下载产物安装验证 | 匿名 `curl` 取回的 wheel → 全新 venv → `sqltrace 0.1.1`；`golden` 5/5、rc=0；`lineage data/corpus --json` = **54 文件 / 61 语句 / 232 边 / 10 诊断 / passed=true**；三条真实 DML 落 3 条 `unsupported_write_statement` 且 `passed=true` |
+| tag 树自足复验 | 浅克隆 tag 树 → 自建 venv `-e ".[dev]"` → **129 passed**、布局门**全绿**、`golden` **5/5**；`git status --porcelain` 空 |
+| 从 tag 树归档的换行 | `git archive v0.1.1 src/sqltrace/__init__.py \| tar xO \| od -c \| grep -c '\r'` → **0**（2C 的 `.gitattributes` 生效，v0.1.0 时这里是 CRLF） |
+| CI run id（tag 树之前的发布提交） | `39901466384`（`ci` / `main` / push，**success**，23s）：布局门 / 全量测试 + 五条 golden（3.12） / 最低支持版本 3.9 真装真跑，三 job 均 `ubuntu-24.04` |
+| CI annotations | 三 job 各 **0** 条（`Node.js 20 is deprecated` 与 ubuntu-latest 迁移 notice 都已消失） |
+| CI 结论措辞 | **CI 绿**（真实 run id 已回填；Linux 侧三 job 全绿） |
+
+### tag 后提交范围（POST_TAG_SCOPE + DELIVERABLE_UNCHANGED）
+
+本轮 tag 后的提交只改 `plan/RELEASE-M6.1.md` §二 与 `update/`（后者已在 `.gitignore`，不入库）。
+`src/`、`data/`、`tests/`、`docs/`、`pyproject.toml`、`README.md`、`release/SHA256SUMS`、`.github/`、`.gitattributes` **零改动**。
 
 ### 未验证项（如实登记）
 
 - **macOS 未跑**（CI 只有 ubuntu 系 runner）。
-- **真实 py3.9 本机未验**：本机只有 3.8.8 与 3.12.10；3.9 由 CI 的 `py39-min` job 真装真跑验证（`python 3.9.25 / sqlglot 30.24.0`）。
+- **真实 py3.9 本机未验**：本机只有 3.8.8 与 3.12.10；3.9 由 CI 的 `py39-min` job 真装真跑验证（`python 3.9.25 / sqlglot 30.24.0`、129 passed）。该腿首推即抓到 `Path.write_text(newline=)` 是 3.10+ API（run `39900957482` 红），修后转绿。
 - PyPI 未发布（D13 定案：只走 GitHub Release 附产物）。
 - `UPDATE` / `DELETE` 的**列级血缘**未实现（DEC-1 乙案边界）：只保证"不静默"，不宣称"DML 也有列级血缘"。
+- **HTTPS push 通道不稳**：`git push origin main` 与 `git push origin v0.1.1` 本次各失败过一次（`Failed to connect to github.com port 443`），tag 最终走 `ssh://git@ssh.github.com:443/yuluo554/sqltrace.git` 推成功；`gh api` 与匿名 `curl` 全程可用。
