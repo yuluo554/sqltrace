@@ -403,6 +403,12 @@ def test_diff_json_two_runs_byte_identical():
 
 
 def test_diff_markdown_two_runs_byte_identical_and_no_crlf():
+    """同输入双跑一致 + **逻辑层**无 `\\r`。
+
+    覆盖范围说明（D2）：这里的 `io.StringIO` 是内存流，**不经过 newline 翻译**，
+    所以下面的 `"\\r" not in` 只能证明"渲染函数没自己塞 \\r"，**不能**证明真实管道无 CRLF。
+    真实流的字节验收在 `tests/test_output_stream.py`（subprocess + capture_output=True）。
+    """
     buf1, buf2 = io.StringIO(), io.StringIO()
     import contextlib
     with contextlib.redirect_stdout(buf1):
@@ -410,7 +416,7 @@ def test_diff_markdown_two_runs_byte_identical_and_no_crlf():
     with contextlib.redirect_stdout(buf2):
         main(["diff", str(G5 / "corpus_v2"), "--base", str(G5 / "corpus"), "--md"])
     assert buf1.getvalue() == buf2.getvalue()
-    assert "\r" not in buf1.getvalue()
+    assert "\r" not in buf1.getvalue()  # 仅逻辑层；真实流见 tests/test_output_stream.py
     assert "REMOVED" in buf1.getvalue() and "mermaid" in buf1.getvalue()
 
 

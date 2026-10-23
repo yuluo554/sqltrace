@@ -52,7 +52,7 @@
 ## 四、既定口径清单（K 编号，动了会打挂测试）
 
 - **K1**：三类边判定顺序（AST 确定不了→unknown 先于 value/control）——§4.1。
-- **K2**：reason code 封闭枚举 **14 个**——§4.2；新增必须改该节 + constants.py。
+- **K2**：reason code 封闭枚举 **M5 交付时 14 个**（当前 **15 个**，见 `data/README.md` §4.2）——§4.2；新增必须改该节 + constants.py。
 - **K3**：退出码 0/1/2/3/4——§4.4；argparse 用法错误保持 SystemExit(2)。
 - **K4**：边排序键 `(target_table, target_column, kind, source_table, source_column, expr)` 码点升序——§4.6；`output.dumps_json` 单一出口。
 - **K5**：不调用 sqlglot `lineage()`/`qualify()` 作判定路径（D5）；sqlglot 钉 `>=30.20,<31`。

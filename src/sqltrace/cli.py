@@ -31,7 +31,7 @@ from .diffgate import (
 )
 from .fallback import assert_reason_codes, zero_silence_violations
 from .loader import load_corpus
-from .output import dumps_json, ensure_deterministic_stdio
+from .output import dumps_json, ensure_deterministic_stdio, silence_library_logging
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -90,6 +90,7 @@ def _all_diags(corpus, edge_diags) -> list:
 
 def main(argv: list | None = None) -> int:
     ensure_deterministic_stdio()
+    silence_library_logging()  # D5：库噪声与自家诊断分栏（stderr 只留 sqltrace: 前缀）
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command is None:

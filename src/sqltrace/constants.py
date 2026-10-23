@@ -21,6 +21,7 @@ REASON_CODES = (
     "wildcard_expanded",
     "schema_overridden",
     "unsupported_stored_procedure",
+    "unsupported_write_statement",
 )
 
 # §4.2 挂载点：既落边（kind=unknown）又落诊断的码

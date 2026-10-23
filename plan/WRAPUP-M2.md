@@ -11,7 +11,7 @@
 | control 边口径 | 语句级谓词（WHERE/JOIN/GROUP BY/HAVING/QUALIFY）扇出到该 SELECT 全部输出列（§4.1 未限定逐目标归属；标注单目标为下界，实现为上界，不触碰 value 精确率门禁） | 标注 155 条全部命中于产出（recall 分母口径） |
 | 窗口强制口径 | `SUM(x) OVER (PARTITION BY k ORDER BY t)` → (w,value,x)+(w,control,k)+(w,control,t)；**无** (w,value,k) | `test_window_partition_order_are_control_not_value` |
 | golden g1 窗口用例 | g1 的窗口分型即上条口径，M2 内核通过单元等价用例锁定（g1 期望冻结在 M5 跑 runner） | 同上 + `test_case_then_value_when_control` 族 |
-| CLI 血缘边 | `sqltrace lineage data/corpus` → 232 条边（value 110 / control 116 / unknown 6）+ 3 条内核诊断；`--json` 稳定排序输出 | CLI 实跑（M2 收尾） |
+| CLI 血缘边 | `sqltrace lineage data/corpus` → 232 条边（value 110 / control 116 / unknown 6）+ 3 条内核诊断；`--json` 稳定排序输出 | CLI 实跑（M2 收尾）。**v0.1.1 注**：D11 加了 2 条真实 DML 语料后边数仍 232，诊断由 3（内核侧）/8（含装载侧）变为 10（+2 `unsupported_write_statement`） |
 
 ## 二、实现落点
 

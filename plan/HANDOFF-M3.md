@@ -9,7 +9,7 @@
 - 证据：
   - 常驻测试 **59 passed**（`PYTHONDONTWRITEBYTECODE=1 py -3.12 -X utf8 -m pytest tests -q`；M3 新增 23 个）。
   - 精确率/召回未回退：value **100%（110/110）**、召回 **98.1%（152/155）**。
-  - `sqltrace lineage data/corpus`：**232 条边**（value 110 / control 116 / unknown 6）+ **8 条诊断**，零静默门 **passed=true**、违规 0、未登记码 0。
+  - `sqltrace lineage data/corpus`：M3 收尾时为 **232 条边**（value 110 / control 116 / unknown 6）+ **8 条诊断**，零静默门 **passed=true**、违规 0、未登记码 0。**v0.1.1 起**（D11 加了两条真实 DML 语料）：仍是 **232 条边**（三类分布不变）+ **10 条诊断**（+2 条 `unsupported_write_statement`），零静默门仍 passed=true。
   - 双跑 `--json` 字节级一致（100,399 字节，sha256 相同）。
   - **变异验证**：把 `_flag_no_source` 改成 no-op（模拟静默丢弃）→ CLI 退出码 `4`；还原 → `0`。门能红也能绿，不是空判据。
   - 布局门全绿（HANDOFF-M3 本份；WRAPUP-M3 已入库）。
@@ -65,7 +65,7 @@
 ## 六、M3 DoD checklist
 
 - [x] `grep -c unknown` 与未解析计数一致（JSON 三段对账，6 条 unknown 边逐条有同键诊断）
-- [x] 每个降级构造都有对应 reason code（13 档表驱动覆盖，缺一即红）
+- [x] 每个降级构造都有对应 reason code（M3 交付时为 13 档表驱动覆盖，缺一即红；**M6 后为 15 档**：M6 增 `unsupported_write_statement` 后枚举与 `cases` 字典同步扩到 15，`test_every_reason_code_has_a_triggering_case` 仍是全集比对）——口径说明见 `plan/WRAPUP-M3.md` §一 同名行
 - [x] 零静默（`write_ids` 42 条、违规 0；阳性对照必红；变异验证：关掉 `no_source_columns` → 退出码 4）
 - [x] golden g2 绿（未知 schema `SELECT *` 零猜测，目标列占位 `*`）
 - [x] golden g3 绿（`INSERT (c2, c1) SELECT a, b` 位置映射；按名对齐的反例被显式否定）

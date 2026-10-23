@@ -55,6 +55,7 @@ desktop.ini
 .env.*
 *.local.toml
 _private/
+update/
 
 # ---- 数据库文件（本项目不连库，防止误提交）----
 *.db

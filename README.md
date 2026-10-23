@@ -14,7 +14,9 @@
 
 正确性纪律：`value` 边精确率 100%（人工标注语料范围内，宁可 `unknown` 不得假边）；每档降级带机器可读 reason code（零静默）；同输入两次运行 JSON 字节级一致。口径单点定义在 `data/README.md` §四。
 
-**零静默是可执行的门，不是口号**：`sqltrace lineage` 对每条写语句断言"有边或有诊断"，任何静默丢弃都会让它以退出码 `4` 失败。
+运行期要求 **Python ≥3.9**（`sqlglot>=30.20` 自身要求 ≥3.9）；输出换行恒为 `\n`（跨平台字节级一致，Windows 亦不产 CRLF）。
+
+**零静默是可执行的门，不是口号**：`sqltrace lineage` 对每条写语句断言"有边或有诊断"，任何静默丢弃都会让它以退出码 `4` 失败。写语句 = `INSERT` / `CREATE TABLE|VIEW ... AS` / `MERGE` / **`UPDATE` / `DELETE` / `TRUNCATE` / `COPY`**——后四类本期不做列级血缘，一律落 `unsupported_write_statement` 诊断（能力边界见 `data/README.md` §4.2）。
 
 ## 命令树（M1–M5 全部落地）
 

@@ -59,6 +59,9 @@ README §命令树 五条命令逐条实跑（wheel 通道）：
 | `sqltrace impact raw_cust.nm data/corpus` | `0` | 下游 5 / 最终消费者 2 / 穿透 2 层 |
 | `sqltrace golden data/golden` | `0` | 5/5 PASS |
 
+> **本表是 v0.1.0 的冻结记录，不要改数值。** v0.1.1（D11 加了两条真实 DML 语料）后同一批命令的观测是
+> **54 文件 / 61 语句 / 232 边 / 10 诊断**（census 与 impact 数字不变），见 `plan/RELEASE-M6.1.md`。
+
 双跑确定性：`diff --json` 两次输出 `cmp` 相同；`census --md` 两次相同；且与仓库内 `docs/diff-sample.json`、`docs/census-sample.md` **逐字节一致**（终端重定向的 CRLF 归一后比对，Windows 控制台换行不是程序输出差异）。
 
 ### 5. 脱敏扫描（`git ls-files` 全量）

@@ -215,6 +215,72 @@ def test_reason_codes_closed_enum(real_run):
     assert assert_reason_codes(edges, diags) == []
 
 
+# ---------- D1：数据写语句（UPDATE / DELETE / TRUNCATE）必须被门看见 ----------
+
+@pytest.mark.parametrize("sql,label", [
+    ("UPDATE mart_x SET v = v + 1", "UPDATE"),
+    ("DELETE FROM mart_y WHERE id = 1", "DELETE"),
+    ("TRUNCATE TABLE mart_z", "TRUNCATE TABLE"),
+])
+def test_data_write_statement_is_visible_to_zero_silence_gate(sql, label):
+    """D1（DEC-1 乙案）：根节点是数据写类型就必须"有边或有诊断"，不得静默丢弃。
+
+    本期不产边，所以判据落在诊断上；`write_ids` 必须包含它——否则门根本不去看。
+    """
+    corpus, edges, diags = _run(sql, "postgres", {"mart_x": {"v": "unknown"},
+                                                  "mart_y": {"id": "unknown"}})
+    assert corpus.write_ids == ["t.sql#0"], "数据写语句未登记进零静默门的输入集合"
+    got = [d for d in diags if d.reason_code == "unsupported_write_statement"]
+    assert len(got) == 1 and got[0].approximate is True
+    assert label in got[0].message          # 诊断点名语句类型，不是空 message
+    assert zero_silence_violations(corpus.write_ids, edges, diags) == []
+
+
+def test_data_write_statement_negative_control_exits_4(tmp_path, monkeypatch):
+    """阳性对照：把留痕去掉后同一条 SQL 必须 rc=4（门真的会红，不是空判据）。"""
+    import sqltrace.core as core
+
+    (tmp_path / "postgres").mkdir()
+    (tmp_path / "postgres" / "a.sql").write_text("UPDATE mart_x SET v = v + 1;\n",
+                                                 encoding="utf-8")
+    monkeypatch.setattr(core, "_flag_unsupported_write", lambda *a, **k: None)
+    rc = main(["lineage", str(tmp_path), "--json"])
+    assert rc == 4
+
+
+def test_data_write_statement_is_not_a_census_writer():
+    """§4.8 writers 口径不变：UPDATE / DELETE 不进写者台账（普查数字不漂）。"""
+    corpus, _, _ = _run("UPDATE mart_x SET v = v + 1", "postgres",
+                        {"mart_x": {"v": "unknown"}})
+    assert corpus.write_targets == {}
+
+
+# ---------- D4：动态 SQL 诊断点名那条语句，不是文件开头注释 ----------
+
+@pytest.mark.parametrize("sql,dialect,must_contain", [
+    ("EXEC('SELECT inv_id FROM raw_inv')", "tsql", "SELECT inv_id FROM raw_inv"),
+    ("EXEC sp_help", "tsql", "sp_help"),
+    ("CALL p()", "postgres", "p()"),
+])
+def test_dynamic_sql_diagnostic_names_the_statement(sql, dialect, must_contain):
+    """`Execute.sql()` 实测返回 `''`（且会 warn），message 不得因此退化成空/注释。"""
+    _, _, diags = _run(sql, dialect)
+    got = [d for d in diags if d.reason_code == "UNSUPPORTED_DYNAMIC_SQL"]
+    assert got, "动态 SQL 诊断丢了"
+    assert must_contain in got[0].message, got[0].message
+    assert got[0].message.strip() != "dynamic SQL statement stopped:"
+
+
+def test_dynamic_sql_diagnostic_on_comment_prefixed_corpus_statement():
+    """语料里那条带文件头注释的 EXEC：message 必须点名 EXEC，不能显示注释（D4 现场）。"""
+    _, _, diags = _run(
+        "-- 动态 SQL：M3 将以 UNSUPPORTED_DYNAMIC_SQL 降级（unknown 不预标）\n"
+        "EXEC('SELECT inv_id FROM raw_inv')", "tsql")
+    got = [d for d in diags if d.reason_code == "UNSUPPORTED_DYNAMIC_SQL"]
+    assert got and "EXEC(" in got[0].message
+    assert "动态 SQL：M3" not in got[0].message
+
+
 def test_every_unknown_edge_has_reason_and_diag(real_run):
     """§4.2 规则 5：unknown 边必带 reason code + approximate，且有同键诊断。"""
     _, edges, diags = real_run
@@ -254,6 +320,8 @@ def test_every_reason_code_has_a_triggering_case(tmp_path):
         "unsupported_stored_procedure": (
             "CREATE PROCEDURE p AS BEGIN INSERT INTO mart_x (id) SELECT id FROM raw_x; END",
             "tsql", {}),
+        "unsupported_write_statement": ("UPDATE mart_x SET v = v + 1", "postgres",
+                                       {"mart_x": {"v": "unknown"}}),
     }
     # recursion_limit 用真实构造（嵌套 20 层 > §4.7 上限 16）
     deep = "SELECT id FROM raw_x"

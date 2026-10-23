@@ -28,13 +28,64 @@ _DIALECT_MAP = {
 # ---------------------------------------------------------------- 小工具
 
 def _clean_sql(node) -> str:
-    """表达式文本（去掉 sqlglot 补的 NULLS FIRST/LAST，保持原 SQL 观感）。"""
+    """表达式文本（去掉 sqlglot 补的 NULLS FIRST/LAST，保持原 SQL 观感）。
+
+    `Execute` / `Command` 不能走 `.sql()`：实测 `Execute.sql()` 返回空串（且触发
+    sqlglot 的 `Unsupported Execute syntax` logger.warning），诊断 message 会退化成
+    文件开头注释（D4）。这两类改用 `args["this"]` / `args["expression"]`。
+    """
+    if isinstance(node, (exp.Execute, exp.Command)):
+        return _dynamic_sql_text(node).replace(" NULLS FIRST", "").replace(
+            " NULLS LAST", "").strip()
     return (
         node.sql()
         .replace(" NULLS FIRST", "")
         .replace(" NULLS LAST", "")
         .strip()
     )
+
+
+def _dynamic_sql_snippet(node) -> str:
+    """动态 SQL 诊断里那 80 字符：**被执行的 SQL**，带语句类型前缀（D4）。
+
+    实测 `Execute.sql()` 返回 `''`（且会 warn），旧实现因此打印出文件开头注释。
+    这里显式拼 `EXEC('<inner>')`，让诊断点名那条语句而不是注释。
+    """
+    inner = _dynamic_sql_text(node)
+    if isinstance(node, exp.Execute):
+        text = f"EXEC({inner!r})" if inner else "EXEC(<unparsed>)"
+    else:  # Command：`args["this"]` 是动词（CALL / EXECUTE），`expression` 是原文
+        verb = node.args.get("this") or ""
+        verb = verb if isinstance(verb, str) else str(verb)
+        text = f"{verb} {inner}".strip() if inner else (verb or "COMMAND")
+    return text[:80]
+
+
+def _dynamic_sql_text(node) -> str:
+    """`EXEC('<sql>')` / `EXECUTE IMMEDIATE '<sql>'` 的**被执行的 SQL 文本**（D4）。
+
+    - `Execute`：`this` 是 `Subquery(Table(Identifier))`，`Table.name` 就是字符串字面量；
+    - `Command`：`expression` 是被执行的语句原文（`.sql()` 可用，不会 warn）。
+    """
+    if isinstance(node, exp.Execute):
+        inner = node.this
+        while inner is not None and not isinstance(inner, str):
+            if isinstance(inner, (exp.Table, exp.Identifier)):
+                name = getattr(inner, "name", None)
+                if name:
+                    return name
+                break
+            inner = inner.this
+        return ""
+    expr = node.args.get("expression")
+    if expr is not None:
+        text = expr.sql() if hasattr(expr, "sql") else str(expr)
+        if text:
+            return text
+    this = node.args.get("this")
+    if this is not None:
+        return this.sql() if hasattr(this, "sql") else str(this)
+    return ""
 
 
 def _is_star(e) -> bool:
@@ -616,6 +667,51 @@ def _read_tables(root, target_table) -> tuple:
     return tuple(sorted(names))
 
 
+# ---------------------------------------------------------------- 期外数据写语句（§4.2 规则 4）
+
+# 数据写语句的根类型：识别为写语句即必须"有边或有诊断"（README 首屏承诺）。
+# 本期只留痕不产边 —— DML 列级血缘（UPDATE SET 的来源）是后续里程碑的工程量，
+# 乙案口径是"让门能看见"，不是"把能力扩到 DML"（update/02 DEC-1 乙案）。
+_DATA_WRITE_TYPES = tuple(
+    t for t in (exp.Update, exp.Delete, exp.TruncateTable, getattr(exp, "Copy", None))
+    if t is not None
+)
+
+# AST 类名 → 人读语句名（`TruncateTable` 直接 upper() 会印成 TRUNCATETABLE）
+_WRITE_LABELS = {
+    "Update": "UPDATE",
+    "Delete": "DELETE",
+    "TruncateTable": "TRUNCATE TABLE",
+    "Copy": "COPY",
+}
+
+
+def _write_table_of(root) -> str | None:
+    """数据写语句的写目标表名（`TruncateTable.this` 实测是 None，改取 Table 子节点）。"""
+    if isinstance(root.this, exp.Table):
+        return root.this.name
+    return next((t.name for t in root.find_all(exp.Table) if t.name), None)
+
+
+def _flag_unsupported_write(diags: list, stmt, root) -> None:
+    """数据写语句（UPDATE / DELETE / TRUNCATE / COPY …）留痕，供零静默门判定。
+
+    不进 `write_targets`：§4.8 的 writers 口径仍是 INSERT / CREATE…AS / MERGE 三形态，
+    census 数字不因此漂移。
+    """
+    table = _write_table_of(root)
+    kind = type(root).__name__
+    kind = _WRITE_LABELS.get(kind, kind.upper())
+    target = f" `{table}`" if table else ""
+    diags.append(Diagnostic(
+        stmt.file, stmt.index, "unsupported_write_statement",
+        f"{kind}{target} writes table rows but column-level lineage for this statement "
+        f"type is not supported in this release; statement registered for the "
+        f"zero-silence gate: {_clean_sql(root)[:80]}",
+        True,
+    ))
+
+
 def _flag_no_source(resolver, write_ids: list, stmt) -> None:
     """写语句零边时给出确定结论 `no_source_columns`（§4.2）：边集为空是**结果**，不是丢弃。
 
@@ -657,9 +753,9 @@ def build_edges(corpus: Corpus):
         if root is None:
             continue
 
-        if isinstance(root, (exp.Command,)) or type(root).__name__ == "Execute":
+        if isinstance(root, (exp.Command,)) or isinstance(root, exp.Execute):
             diags.append(Diagnostic(stmt.file, stmt.index, "UNSUPPORTED_DYNAMIC_SQL",
-                                    f"dynamic SQL statement stopped: {_clean_sql(root)[:80]}",
+                                    f"dynamic SQL statement stopped: {_dynamic_sql_snippet(root)}",
                                     True))
             continue
 
@@ -702,7 +798,14 @@ def build_edges(corpus: Corpus):
             # 纯 SELECT：不产边，但它是**读者**（§4.8 读者口径不能只看边集）
             if isinstance(root, exp.Query):
                 reads[stmt.statement_id] = _read_tables(root, None)
-            continue  # 纯 SELECT / 纯 DDL：不是血缘语句
+            # 期外数据写语句（UPDATE / DELETE / TRUNCATE / COPY）：不产边，但**必须**
+            # 进 write_ids 并留痕——否则 README 首屏「对每条写语句断言有边或有诊断」不成立（D1）。
+            # 读表仍按 §4.8 规则 2 登记：`DELETE FROM a USING b` 的 b 是真读者。
+            elif isinstance(root, _DATA_WRITE_TYPES):
+                write_ids.append(stmt.statement_id)
+                reads[stmt.statement_id] = _read_tables(root, _write_table_of(root))
+                _flag_unsupported_write(diags, stmt, root)
+            continue  # 其余纯 DDL：不是血缘语句，也不是数据写语句
         table, explicit_cols, select = target
         if not table or select is None:
             continue

@@ -8,10 +8,10 @@ on:
 jobs:
   layout:
     name: 布局门（方法论装订）
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: 布局门
@@ -19,10 +19,10 @@ jobs:
 
   test:
     name: 全量测试 + 五条 golden（3.12 通道）
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: 安装
@@ -34,14 +34,21 @@ jobs:
       - name: 五条 golden 回归
         run: sqltrace golden data/golden
 
-  py38-syntax:
-    name: 3.8 语法兼容（仅 ast，不装 sqlglot）
-    runs-on: ubuntu-latest
+  # D3（DEC-3 甲案）：`requires-python = ">=3.9"` 是给 pip 的承诺，得**真装真跑**才验得了。
+  # 旧的 py38-syntax 只做 `ast.parse(feature_version=(3,8))`、从不装包，所以永远看不见
+  # 「sqlglot>=30.20 要求 >=3.9」这个必然失败。
+  py39-min:
+    name: 最低支持版本 3.9（真装真跑）
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.8"
-      - name: ast.parse(feature_version=(3,8))
+          python-version: "3.9"
+      - name: 安装（含 sqlglot，若 3.9 装不上这里就红）
         run: |
-          python -X utf8 -c "import ast,pathlib; [ast.parse(p.read_text(encoding='utf-8'),feature_version=(3,8)) for d in ('src/sqltrace','tests','tools') for p in pathlib.Path(d).glob('*.py')]; print('3.8 syntax ok')"
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -c "import sys, sqlglot; print('python', sys.version.split()[0], 'sqlglot', sqlglot.__version__)"
+      - name: 全量测试
+        run: python -m pytest tests -q

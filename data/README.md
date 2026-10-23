@@ -101,12 +101,13 @@
 | `wildcard_expanded` | `SELECT *` 且 schema 已知，**正常路径**展开为具体列（非降级，仅供参考；`plan/01` §二模块③ 表） | 否 | 诊断 |
 | `schema_overridden` | 外部 `--schema` 文件覆盖了从语料推导出的同名表 schema（`plan/01` §二模块①） | 否 | 诊断 |
 | `unsupported_stored_procedure` | 存储过程 / 函数体内含 DML：首期不做体内血缘（D11），整条语句跳过并留痕 | 是 | 诊断 |
+| `unsupported_write_statement` | 数据写语句（`UPDATE` / `DELETE` / `TRUNCATE` / `COPY`）：AST 上是写类型，本期不做列级血缘；语句登记进零静默门并留痕、**不产边** | 是 | 诊断 |
 
 **规则**：
 1. `unknown` 边必须带 1 个 reason code，且 `approximate=true`；
 2. 降级但仍有边时必须带 1 个 reason code；
 3. **没有 reason code 的静默丢弃 = FAIL**；
-4. **零静默（机械判据）**：每条**写语句**（`INSERT` / `CREATE TABLE|VIEW ... AS` / `MERGE`）必须落在下列之一——① 产出 ≥1 条边；② 产出 ≥1 条诊断。两者皆无 = FAIL（退出码 `4`，§4.4）。
+4. **零静默（机械判据）**：每条**写语句**（`INSERT` / `CREATE TABLE|VIEW ... AS` / `MERGE` / `UPDATE` / `DELETE` / `TRUNCATE` / `COPY`）必须落在下列之一——① 产出 ≥1 条边；② 产出 ≥1 条诊断。两者皆无 = FAIL（退出码 `4`，§4.4）。**后四类本期不产边**，一律由 `unsupported_write_statement` 满足②（能力边界见 §4.2 表与 `plan/01` §六）。
 5. **边↔诊断对账**：每条 `unknown` 边都必须在 `diagnostics[]` 里有同 `(file, statement_index, reason_code)` 的一项；反向，挂载点为`边 + 诊断`的码若出现诊断，则同语句必须至少有一条该码的 `unknown` 边。
 
 ### 4.3 精确率与召回的判定

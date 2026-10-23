@@ -7,7 +7,7 @@
 | DoD 项 | 实现 | 核验 |
 | --- | --- | --- |
 | `grep -c unknown` 与未解析计数一致 | JSON 文本里 `"kind": "unknown"` 行数 == `edges[kind=unknown]` 条数（6）；逐条在 `diagnostics[]` 找到同 `(file, statement_index, reason_code)` 项；反向无"有诊断无 unknown 边" | `test_cli_grep_unknown_count_matches_unresolved_diagnostics`（三段对账，常驻） |
-| 每个降级构造都有对应 reason code | 枚举 13 档，**每档一个可复现触发用例**（表驱动，缺一即红） | `test_every_reason_code_has_a_triggering_case` |
+| 每个降级构造都有对应 reason code | **当前 15 档**（`REASON_CODES` 与 §4.2 表逐行一致），**每档一个可复现触发用例**（表驱动，缺一即红）。历史值：M3 交付时 13 个码（那时 `cases` 字典 13 个键 + loader 侧补 `cycle_detected`）、M5 时 14 个；v0.1.1 增 `unsupported_write_statement` 后为 15 —— 每次扩枚举都必须**同轮**改 `data/README.md` §4.2 与 `constants.py` 两处 | `test_every_reason_code_has_a_triggering_case`（全集差集，不是子集） |
 | 零静默 | 写语句必须"有边或有语句级诊断"；实证 `write_ids` 42 条、违规 0 条；阳性对照 `["x.sql#0"]` 必红 | `test_zero_silence_gate_on_corpus` + `test_zero_silence_gate_catches_violation` |
 | golden g2 绿（未知 schema `SELECT *` 零猜测） | 只出 `unknown_wildcard`、`approximate=true`、`source=None`、目标列占位 `*`，无任何猜测列名 | `test_golden_g2_unknown_wildcard_never_guesses` |
 | golden g3 绿（INSERT 列清单位置映射） | `INSERT (c2, c1) SELECT a, b` → `c2←a`、`c1←b`；反例（按名对齐）显式断言不成立 | `test_golden_g3_insert_column_list_positional_mapping` |
