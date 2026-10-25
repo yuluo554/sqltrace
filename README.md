@@ -2,7 +2,7 @@
 
 **纯本地 Python CLI**：无数据库连接、无服务端、无网络请求、无图形界面。安装后命令名 `sqltrace`。
 
-> 状态：**M6 发布**（M0 装订骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边 + M3 降级策略与零静默门 + M4 写入者普查五节 + M5 diff/impact/golden + M6 发布三件套），里程碑状态见 `plan/00` §六。**当前发布版 `v0.1.1`**（修复零静默门漏 DML、Windows CRLF、`requires-python` 与依赖不自洽等，见 `plan/RELEASE-M6.1.md`）。
+> 状态：**M6 发布**（M0 装订骨架 + M1 语料/标注/golden 输入侧/装载器闭环 + M2 AST 血缘边 + M3 降级策略与零静默门 + M4 写入者普查五节 + M5 diff/impact/golden + M6 发布三件套），里程碑状态见 `plan/00` §六。**当前发布版 `v0.1.2`**（license 元数据转 SPDX（PEP 639）+ 版本号，功能零改动，见 [Release v0.1.2](https://github.com/yuluo554/sqltrace/releases/tag/v0.1.2)；上一版 v0.1.1 的修复见 `plan/RELEASE-M6.1.md`）。
 
 ## 定位（诚实边界）
 
@@ -41,7 +41,7 @@ py -X utf8 tools/check_sprint_layout.py   # 布局门（方法论装订）
 ## 安装发布版
 
 ```bash
-pip install https://github.com/yuluo554/sqltrace/releases/download/v0.1.1/sqltrace-0.1.1-py3-none-any.whl
+pip install https://github.com/yuluo554/sqltrace/releases/download/v0.1.2/sqltrace-0.1.2-py3-none-any.whl
 ```
 
 需要 **Python ≥3.9**。校验和见 Release 附件的 `SHA256SUMS`（`sha256sum -c SHA256SUMS`）。CI 状态：三 job 全绿（布局门 / 全量测试 + 五条 golden（3.12） / 最低支持版本 3.9 真装真跑），run id 见 `plan/RELEASE-M6.1.md` §二。
